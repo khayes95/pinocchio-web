@@ -136,7 +136,7 @@ section{ padding:66px 0; }
 <section class="hero">
   <div class="wrap">
     <div class="kicker"><span class="sq"></span><span class="mono">Uncertainty for black-box language models · COLM 2026</span></div>
-    <h1>Does the model<br>actually know?</h1>
+    <h1 data-shatter>Does the model<br>actually know?</h1>
     <div class="grid">
       <div>
         <p class="lede">Pinocchio scores any model's answer with P(correct).</p>
@@ -189,14 +189,14 @@ section{ padding:66px 0; }
       <div class="spec ok">
         <div class="h"><span>Answer A</span><span class="v">✓ Correct</span></div>
         <div class="b">
-          <p class="qa"><b>Q.</b> Boiling point of water at sea level (°C)?<br><b>A.</b> 100 °C.</p>
+          <p class="qa" data-shatter><b>Q.</b> Boiling point of water at sea level (°C)?<br><b>A.</b> 100 °C.</p>
           <div class="bar"><span class="n">0.96</span><span class="t"><i style="width:96%"></i></span></div>
         </div>
       </div>
       <div class="spec no">
         <div class="h"><span>Answer B</span><span class="v">✗ Fabricated</span></div>
         <div class="b">
-          <p class="qa"><b>Q.</b> Who won the 1931 Nobel Prize in Physics?<br><b>A.</b> Einstein, for the photoelectric effect.</p>
+          <p class="qa" data-shatter><b>Q.</b> Who won the 1931 Nobel Prize in Physics?<br><b>A.</b> Einstein, for the photoelectric effect.</p>
           <div class="bar"><span class="n">0.11</span><span class="t"><i style="width:11%"></i></span></div>
         </div>
       </div>
@@ -330,10 +330,31 @@ Is the answer correct? (i) No  (ii) Yes</div>
       <div><div class="sec-num">06 · Live demo</div><h2 class="sec-h">Try it yourself.</h2></div>
       <div class="intro">Paste a question and a model's answer; read P(correct) back.</div>
     </div>
-    <div style="border:1px solid var(--ink); background:var(--card);">
-      <iframe src="https://kevindavidhayes-pinocchio.hf.space" title="Pinocchio live demo" loading="lazy" style="width:100%; height:720px; border:0; display:block;"></iframe>
+    <div class="pino-demo" style="--d-ink:#141414;--d-good:#0a7d5a;--d-bad:#e2231a;--d-panel:#ffffff;--d-line:#c9c9c4;">
+      <div class="pd-chips">
+        <button class="pd-chip on" data-p="0.96" data-verdict="Truthful" data-q="Boiling point of water at sea level?" data-a="100 &#176;C.">Water boils at 100&#176;C</button>
+        <button class="pd-chip" data-p="0.88" data-verdict="Truthful" data-q="The integral of 2x?" data-a="x&#178; + C.">&#8747;2x dx = x&#178; + C</button>
+        <button class="pd-chip" data-p="0.63" data-verdict="Leaning correct" data-q="Population of Lagos in 2025?" data-a="About 15.9 million.">Lagos &#8776; 15.9M</button>
+        <button class="pd-chip" data-p="0.19" data-verdict="Fabricated" data-q="Capital of Australia?" data-a="Sydney.">Capital = Sydney</button>
+        <button class="pd-chip" data-p="0.11" data-verdict="Fabricated" data-q="Who won the 1931 Nobel Prize in Physics?" data-a="Einstein, for the photoelectric effect.">1931 Nobel = Einstein</button>
+      </div>
+      <div class="pd-stage">
+        <svg class="pd-gauge" viewBox="0 0 200 128" aria-hidden="true">
+          <path d="M20 110 A80 80 0 0 1 180 110" fill="none" stroke="var(--_line)" stroke-width="10"/>
+          <path d="M100 30 A80 80 0 0 1 180 110" fill="none" stroke="var(--_g)" stroke-width="10" opacity=".85"/>
+          <path d="M20 110 A80 80 0 0 1 63 46" fill="none" stroke="var(--_b)" stroke-width="10" opacity=".5"/>
+          <line class="pd-needle" x1="100" y1="110" x2="100" y2="44" stroke="var(--_ink)" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="100" cy="110" r="6" fill="var(--_ink)"/>
+        </svg>
+        <div class="pd-readout">
+          <div class="pd-verdict">Ready</div>
+          <div class="pd-p">P(correct) <span class="pd-val">0.00</span></div>
+          <div class="pd-bar"><i></i></div>
+        </div>
+      </div>
+      <div class="pd-qa">Pick an example; the judge scores it.</div>
+      <p class="pd-note">Illustrative demo with preset examples. The live model runs in the <a href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio">HF Space</a> once it is public.</p>
     </div>
-    <p class="note">If this panel is blank, the demo Space is still private; it renders here once it is public. <a href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio" style="color:var(--red);">Open the Space in a new tab.</a></p>
   </div>
 </section>
 
@@ -362,5 +383,119 @@ Is the answer correct? (i) No  (ii) Yes</div>
   </div>
 </footer>
 
+<style id="pino-fx-style">
+.sh-flyer{position:fixed;margin:0;padding:0;pointer-events:none;z-index:99999;white-space:pre}
+[data-shatter]{cursor:pointer;transition:opacity .18s ease}
+[data-shatter]:hover{opacity:.72}
+.pino-demo{--_g:var(--d-good,#3d6a58);--_b:var(--d-bad,#b0331c);--_ink:var(--d-ink,#211c15);--_panel:var(--d-panel,#fff);--_line:var(--d-line,#ccc);border:1px solid var(--_line);background:var(--_panel);padding:24px}
+.pino-demo .pd-chips{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px}
+.pino-demo .pd-chip{font-family:inherit;font-size:13px;cursor:pointer;border:1px solid var(--_line);background:transparent;color:var(--_ink);padding:8px 14px;transition:.15s}
+.pino-demo .pd-chip:hover{border-color:var(--_ink)}
+.pino-demo .pd-chip.on{background:var(--_ink);color:var(--_panel)}
+.pino-demo .pd-stage{display:flex;gap:30px;align-items:center;flex-wrap:wrap}
+.pino-demo .pd-gauge{width:210px;height:auto;flex:none}
+.pino-demo .pd-needle{transform-origin:100px 110px;transition:transform 1.1s cubic-bezier(.2,.85,.2,1)}
+.pino-demo .pd-readout{flex:1;min-width:190px}
+.pino-demo .pd-verdict{font-family:inherit;font-weight:800;font-size:26px;color:var(--_ink);letter-spacing:.01em;transition:opacity .2s}
+.pino-demo .pd-verdict.good{color:var(--_g)}
+.pino-demo .pd-verdict.bad{color:var(--_b)}
+.pino-demo .pd-p{font-family:inherit;font-size:12px;opacity:.7;margin-top:6px;text-transform:uppercase;letter-spacing:.14em}
+.pino-demo .pd-p .pd-val{font-weight:700;opacity:1}
+.pino-demo .pd-bar{height:8px;background:var(--_line);margin-top:14px;overflow:hidden}
+.pino-demo .pd-bar i{display:block;height:100%;width:0;background:var(--_g);transition:width 1.1s cubic-bezier(.2,.85,.2,1)}
+.pino-demo.is-bad .pd-bar i{background:var(--_b)}
+.pino-demo .pd-qa{margin-top:20px;font-size:14px;line-height:1.55;min-height:2.6em;color:var(--_ink);opacity:.92}
+.pino-demo .pd-note{margin-top:14px;font-size:12px;opacity:.55}
+.pino-demo .pd-note a{color:inherit}
+.pino-demo.analyzing .pd-verdict{opacity:.35}
+@media (prefers-reduced-motion: reduce){.pino-demo .pd-needle,.pino-demo .pd-bar i{transition:none}}
+</style>
+<script>
+(function(){
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function splitChars(root){
+    var tw=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null), t, texts=[];
+    while(t=tw.nextNode()) texts.push(t);
+    var spans=[];
+    texts.forEach(function(tn){
+      var frag=document.createDocumentFragment();
+      Array.prototype.forEach.call(tn.nodeValue, function(ch){
+        if(ch===' '||ch==='\n'||ch==='\t'){ frag.appendChild(document.createTextNode(ch)); return; }
+        var s=document.createElement('span'); s.textContent=ch; frag.appendChild(s); spans.push(s);
+      });
+      tn.parentNode.replaceChild(frag,tn);
+    });
+    return spans;
+  }
+  function shatter(el){
+    if(el.__busy) return; el.__busy=true;
+    var original=el.innerHTML;
+    if(reduce){ el.style.transition='opacity .3s'; el.style.opacity='0';
+      setTimeout(function(){ el.style.opacity='1'; el.__busy=false; }, 500); return; }
+    var spans=splitChars(el), flyers=[];
+    spans.forEach(function(s){
+      var r=s.getBoundingClientRect(); if(!r.width&&!r.height) return;
+      var cs=getComputedStyle(s), f=document.createElement('span');
+      f.className='sh-flyer'; f.textContent=s.textContent;
+      f.style.left=r.left+'px'; f.style.top=r.top+'px';
+      f.style.fontFamily=cs.fontFamily; f.style.fontSize=cs.fontSize; f.style.fontWeight=cs.fontWeight;
+      f.style.fontStyle=cs.fontStyle; f.style.letterSpacing=cs.letterSpacing; f.style.textTransform=cs.textTransform;
+      f.style.color=cs.color; f.style.lineHeight=cs.lineHeight;
+      f.style.transition='transform .95s cubic-bezier(.18,.72,.2,1), opacity 1s ease, filter .95s ease';
+      document.body.appendChild(f); flyers.push(f);
+    });
+    el.style.visibility='hidden';
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      flyers.forEach(function(f){
+        var a=Math.random()*6.283, d=55+Math.random()*175;
+        var dx=Math.cos(a)*d, dy=Math.sin(a)*d*0.65-(30+Math.random()*80);
+        f.style.transform='translate('+dx.toFixed(1)+'px,'+dy.toFixed(1)+'px) rotate('+((Math.random()*2-1)*240).toFixed(0)+'deg) scale('+(0.5+Math.random()*0.6).toFixed(2)+')';
+        f.style.opacity='0'; f.style.filter='blur(1.4px)';
+      });
+    });});
+    setTimeout(function(){
+      flyers.forEach(function(f){ f.parentNode&&f.parentNode.removeChild(f); });
+      el.innerHTML=original; el.style.visibility='';
+      el.style.transition='none'; el.style.opacity='0';
+      requestAnimationFrame(function(){ el.style.transition='opacity .55s ease'; el.style.opacity='1';
+        setTimeout(function(){ el.style.transition=''; el.__busy=false; }, 560); });
+    }, 1050);
+  }
+  function initDemo(box){
+    var needle=box.querySelector('.pd-needle'), val=box.querySelector('.pd-val'),
+        verdict=box.querySelector('.pd-verdict'), bar=box.querySelector('.pd-bar i'),
+        qa=box.querySelector('.pd-qa'), chips=box.querySelectorAll('.pd-chip'), raf;
+    function show(p, vt, q, a){
+      var good=p>=0.5;
+      box.classList.toggle('is-bad', !good);
+      verdict.className='pd-verdict '+(good?'good':'bad'); verdict.textContent=vt;
+      needle.style.transform='rotate('+((p-0.5)*180).toFixed(1)+'deg)';
+      bar.style.width=(p*100).toFixed(1)+'%';
+      qa.innerHTML='<b>Q.</b> '+q+' &nbsp;&nbsp; <b>A.</b> '+a;
+      var from=parseFloat(val.textContent)||0, t0=null;
+      cancelAnimationFrame(raf);
+      function tick(ts){ if(t0===null)t0=ts; var k=Math.min(1,(ts-t0)/1000), e=1-Math.pow(1-k,3);
+        val.textContent=(from+(p-from)*e).toFixed(2); if(k<1) raf=requestAnimationFrame(tick); }
+      raf=requestAnimationFrame(tick);
+    }
+    chips.forEach(function(c){ c.addEventListener('click', function(){
+      chips.forEach(function(x){x.classList.remove('on');}); c.classList.add('on');
+      box.classList.add('analyzing');
+      setTimeout(function(){ box.classList.remove('analyzing');
+        show(parseFloat(c.dataset.p), c.dataset.verdict, c.dataset.q, c.dataset.a); }, 430);
+    });});
+    var first=box.querySelector('.pd-chip.on')||chips[0];
+    if(first) setTimeout(function(){ show(parseFloat(first.dataset.p), first.dataset.verdict, first.dataset.q, first.dataset.a); }, 350);
+  }
+  function init(){
+    document.querySelectorAll('[data-shatter]').forEach(function(el){
+      if(!el.getAttribute('title')) el.setAttribute('title','click to shatter');
+      el.addEventListener('click', function(){ shatter(el); });
+    });
+    document.querySelectorAll('.pino-demo').forEach(initDemo);
+  }
+  if(document.readyState!=='loading') init(); else document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
 </body>
 </html>
