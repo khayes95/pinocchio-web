@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Pinocchio — Uncertainty Instrument</title>
+<meta name="description" content="Pinocchio: a plug-in uncertainty estimator for black-box LLMs and VLMs. Score any model's response with P(correct) in two lines of code.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<style>
+:root{
+  --bg:#0c0e11; --bg2:#101318; --panel:#14181e; --panel2:#1a1f26;
+  --line:#232a33; --line2:#2f3843;
+  --ink:#dfe6ee; --dim:#8592a0; --faint:#5c6772;
+  --truth:#39d3bf; --lie:#ff5b5b; --amber:#eab84a;
+  --disp:"Space Grotesk", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, monospace;
+  --maxw:1080px;
+}
+*{ box-sizing:border-box; }
+html{ scroll-behavior:smooth; }
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--mono); font-size:15px; line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:44px 44px; background-position:center top;
+}
+/* dim the grid + add a soft vignette + scanlines */
+body::before{ content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(20,24,30,.35), rgba(10,12,15,.92) 70%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px);
+}
+.wrap{ position:relative; z-index:1; max-width:var(--maxw); margin:0 auto; padding:0 26px; }
+a{ color:var(--truth); text-decoration:none; }
+
+/* ---------- top status bar ---------- */
+.status{ position:sticky; top:0; z-index:20; background:rgba(12,14,17,.86); backdrop-filter:blur(6px); border-bottom:1px solid var(--line2); }
+.status .wrap{ display:flex; align-items:center; justify-content:space-between; height:46px; }
+.status .id{ font-size:12px; letter-spacing:.18em; color:var(--dim); }
+.status .id b{ color:var(--ink); }
+.status .id .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--truth); box-shadow:0 0 8px var(--truth); margin-right:9px; vertical-align:middle; animation:blink 2.4s infinite; }
+@keyframes blink{ 0%,92%,100%{opacity:1} 96%{opacity:.25} }
+.status nav a{ color:var(--dim); font-size:12px; letter-spacing:.12em; text-transform:uppercase; margin-left:20px; }
+.status nav a:hover{ color:var(--ink); }
+@media(max-width:720px){ .status nav{ display:none; } }
+
+.ey{ font-size:12px; letter-spacing:.24em; text-transform:uppercase; color:var(--faint); }
+.ey b{ color:var(--truth); }
+
+/* ---------- hero ---------- */
+.hero{ padding:64px 0 28px; }
+.hero h1{ font-family:var(--disp); font-weight:700; font-size:clamp(56px,12vw,124px); line-height:.92; letter-spacing:-.03em; margin:14px 0 8px; color:var(--ink); }
+.hero h1 .n{ color:var(--lie); }
+.hero .sub{ font-family:var(--disp); font-weight:400; font-size:clamp(18px,2.4vw,24px); color:var(--dim); max-width:60ch; margin:0 0 10px; }
+.hero .sub b{ color:var(--truth); font-weight:500; }
+.meta{ font-size:12.5px; color:var(--faint); margin:18px 0 4px; letter-spacing:.04em; }
+.meta a{ color:var(--dim); border-bottom:1px solid var(--line2); }
+.meta a:hover{ color:var(--ink); }
+.venue{ font-size:12.5px; color:var(--amber); letter-spacing:.08em; }
+
+.readout{ margin:26px 0 6px; border:1px solid var(--line2); background:linear-gradient(var(--panel),var(--bg2)); }
+.readout .top{ display:flex; justify-content:space-between; align-items:center; padding:9px 16px; border-bottom:1px solid var(--line); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--faint); }
+.readout .top .live{ color:var(--truth); }
+.readout .body{ display:grid; grid-template-columns:1fr 200px; gap:0; }
+@media(max-width:720px){ .readout .body{ grid-template-columns:1fr; } .readout .digits{ border-left:0!important; border-top:1px solid var(--line); } }
+.readout svg{ width:100%; height:auto; display:block; }
+.readout .digits{ border-left:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:18px; }
+.readout .digits .lab{ font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--faint); }
+.readout .digits .val{ font-family:var(--disp); font-weight:700; font-size:52px; color:var(--truth); line-height:1; text-shadow:0 0 22px rgba(57,211,191,.35); }
+.readout .digits .bar{ width:100%; height:6px; background:var(--line); margin-top:12px; }
+.readout .digits .bar i{ display:block; height:100%; width:88%; background:var(--truth); box-shadow:0 0 10px var(--truth); }
+
+/* buttons */
+.btns{ display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
+.btn{ font-size:12.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); border:1px solid var(--line2); padding:11px 16px; background:var(--panel); transition:.15s; display:inline-flex; gap:9px; align-items:center; }
+.btn:hover{ border-color:var(--truth); color:var(--truth); box-shadow:0 0 16px -4px var(--truth); }
+.btn .k{ color:var(--faint); }
+.btn.off{ color:var(--faint); border-color:var(--line); cursor:default; }
+.btn.off:hover{ box-shadow:none; color:var(--faint); border-color:var(--line); }
+
+/* ---------- sections ---------- */
+section{ padding:56px 0; position:relative; z-index:1; }
+.sechead{ display:flex; align-items:baseline; gap:16px; margin-bottom:26px; border-bottom:1px solid var(--line2); padding-bottom:14px; }
+.sechead h2{ font-family:var(--disp); font-weight:600; font-size:clamp(24px,3.4vw,34px); margin:0; color:var(--ink); letter-spacing:-.01em; }
+.sechead .tag{ font-size:12px; color:var(--faint); letter-spacing:.2em; }
+.prose{ color:var(--dim); max-width:70ch; }
+.prose p{ margin:0 0 16px; } .prose b, .prose strong{ color:var(--ink); font-weight:500; }
+.prose em{ color:var(--truth); font-style:normal; }
+.cols2{ display:grid; grid-template-columns:1fr 1fr; gap:36px; } @media(max-width:760px){ .cols2{ grid-template-columns:1fr; } }
+
+/* readings (specimens) */
+.reads{ display:grid; grid-template-columns:1fr 1fr; gap:20px; } @media(max-width:760px){ .reads{ grid-template-columns:1fr; } }
+.read{ border:1px solid var(--line2); background:var(--panel); }
+.read .hd{ display:flex; justify-content:space-between; padding:11px 15px; border-bottom:1px solid var(--line); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); }
+.read.ok .hd .v{ color:var(--truth); } .read.no .hd .v{ color:var(--lie); }
+.read .bd{ padding:16px 15px; }
+.read .qa{ font-size:13.5px; color:var(--dim); line-height:1.55; margin:0 0 14px; }
+.read .qa b{ color:var(--ink); }
+.read .meter{ display:flex; align-items:center; gap:12px; }
+.read .meter .num{ font-family:var(--disp); font-weight:700; font-size:30px; }
+.read.ok .meter .num{ color:var(--truth); } .read.no .meter .num{ color:var(--lie); }
+.read .meter .track{ flex:1; height:8px; background:var(--line); }
+.read .meter .track i{ display:block; height:100%; }
+.read.ok .meter .track i{ background:var(--truth); box-shadow:0 0 8px var(--truth); }
+.read.no .meter .track i{ background:var(--lie); box-shadow:0 0 8px var(--lie); }
+
+/* code */
+.code{ border:1px solid var(--line2); background:#0a0c0f; }
+.code .bar{ display:flex; justify-content:space-between; padding:9px 15px; border-bottom:1px solid var(--line); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); }
+.code pre{ margin:0; padding:18px 18px; overflow-x:auto; }
+.code code{ font-family:var(--mono); font-size:13.5px; line-height:1.8; color:#c7d0da; }
+.kw{color:#7fb0ff}.str{color:#39d3bf}.com{color:#5c6772;font-style:italic}.num{color:#eab84a}
+.note{ color:var(--faint); font-size:13px; margin-top:12px; } .note code{ color:var(--truth); background:var(--panel); padding:1px 6px; }
+
+/* modules (checkpoints) */
+.mods{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; } @media(max-width:760px){ .mods{ grid-template-columns:1fr; } }
+.mod{ border:1px solid var(--line2); background:var(--panel); padding:20px 18px; }
+.mod .u{ font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--lie); }
+.mod h3{ font-family:var(--disp); font-size:16px; color:var(--ink); margin:8px 0 10px; }
+.mod p{ color:var(--dim); font-size:13.5px; line-height:1.55; margin:0; } .mod b{ color:var(--ink); }
+
+.prompt{ border:1px solid var(--line2); border-left:3px solid var(--lie); background:var(--panel); padding:16px 18px; font-family:var(--mono); font-size:13.5px; color:var(--ink); white-space:pre-wrap; line-height:1.8; }
+.eq{ color:var(--ink); margin:20px 0; text-align:center; }
+
+/* trace plates */
+.plate{ border:1px solid var(--line2); background:var(--panel); }
+.plate .cap{ display:flex; gap:12px; padding:12px 15px; border-top:1px solid var(--line); font-size:12.5px; color:var(--dim); }
+.plate .cap .f{ color:var(--lie); letter-spacing:.14em; white-space:nowrap; text-transform:uppercase; font-size:11px; padding-top:1px; }
+.plate svg{ width:100%; height:auto; display:block; }
+
+.foot{ border-top:1px solid var(--line2); padding:36px 0 60px; }
+.foot p{ color:var(--faint); font-size:12px; letter-spacing:.03em; max-width:70ch; }
+</style>
+</head>
+<body>
+
+<div class="status">
+  <div class="wrap">
+    <div class="id"><span class="dot"></span><b>PINOCCHIO</b> // UNCERTAINTY INSTRUMENT</div>
+    <nav>
+      <a href="#brief">Brief</a><a href="#readings">Readings</a><a href="#method">Method</a><a href="#traces">Traces</a><a href="#cite">Cite</a>
+    </nav>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <p class="ey">Black-box uncertainty · <b>P(correct)</b> for any model</p>
+    <h1>Pin<span class="n">o</span>cchio</h1>
+    <p class="sub">A lie detector for language models. It reads only the <b>text</b> of a response and returns the probability the answer is correct — no log-probs, no samples, no weights.</p>
+    <p class="meta">Kevin David Hayes · <a href="https://khayes95.github.io/">University of Maryland, College Park</a></p>
+    <p class="venue">◦ Under review at COLM 2026</p>
+
+    <!-- polygraph readout -->
+    <div class="readout">
+      <div class="top"><span>Strip chart · P(correct) trace</span><span class="live">● LIVE</span></div>
+      <div class="body">
+        <svg viewBox="0 0 900 150" role="img" aria-label="A polygraph-style trace of P(correct) with spikes where the model likely lied">
+          <!-- grid -->
+          <g stroke="#1c222a" stroke-width="1">
+            <line x1="0" y1="30" x2="900" y2="30"/><line x1="0" y1="70" x2="900" y2="70"/><line x1="0" y1="110" x2="900" y2="110"/>
+          </g>
+          <line x1="0" y1="70" x2="900" y2="70" stroke="#2f3843" stroke-dasharray="3 5"/>
+          <!-- trace -->
+          <polyline fill="none" stroke="#39d3bf" stroke-width="2" stroke-linejoin="round"
+            points="0,66 30,64 60,69 90,65 120,68 150,66 165,22 180,66 210,70 240,64 270,68 300,66 330,63 345,116 360,67 390,68 420,64 450,70 480,66 510,68 525,18 540,66 570,69 600,64 630,70 660,66 690,68 720,65 750,63 780,69 810,66 840,71 870,66 900,66"/>
+          <!-- lie markers -->
+          <g>
+            <circle cx="165" cy="22" r="4" fill="#ff5b5b"/><text x="165" y="14" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10" fill="#ff5b5b">lie</text>
+            <circle cx="525" cy="18" r="4" fill="#ff5b5b"/><text x="525" y="10" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10" fill="#ff5b5b">lie</text>
+          </g>
+          <g font-family="'JetBrains Mono',monospace" font-size="10" fill="#5c6772">
+            <text x="6" y="27">1.0</text><text x="6" y="84">0.5</text><text x="6" y="124">0.0</text>
+          </g>
+        </svg>
+        <div class="digits">
+          <div class="lab">current</div>
+          <div class="val">0.88</div>
+          <div class="bar"><i></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btns">
+      <span class="btn off"><span class="k">[</span>Paper · on request<span class="k">]</span></span>
+      <span class="btn off"><span class="k">[</span>arXiv · soon<span class="k">]</span></span>
+      <a class="btn" href="https://github.com/khayes95/pinocchio"><span class="k">[</span>Code<span class="k">]</span></a>
+      <a class="btn" href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio"><span class="k">[</span>Demo<span class="k">]</span></a>
+      <a class="btn" href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio"><span class="k">[</span>Checkpoints<span class="k">]</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- BRIEF -->
+<section id="brief">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">01</span><h2>The brief</h2></div>
+    <div class="cols2">
+      <div class="prose">
+        <p>In high-stakes settings you need not only accurate models but honest uncertainty per prediction. The usual tools — log-probabilities, sampling, fine-tuning — are exactly what a closed API withholds.</p>
+        <p><strong>Pinocchio</strong> is a suite of 8B checkpoints that assigns an uncertainty estimate to any model's prediction using only the <em>text</em> of the response. Text LLMs and vision-language models alike.</p>
+      </div>
+      <div class="prose">
+        <p>It transfers across model families without retraining and plugs into an existing pipeline in two lines. We train it on a curated, difficulty-spread mixture of hard benchmarks so it sees confident successes and confident failures.</p>
+        <p>Against black-box baselines it wins on calibration and discrimination — and generalises to models whose responses it never trained on.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- READINGS -->
+<section id="readings">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">02</span><h2>Two readings</h2></div>
+    <div class="reads">
+      <div class="read ok">
+        <div class="hd"><span>Channel A</span><span class="v">✓ TRUTHFUL</span></div>
+        <div class="bd">
+          <p class="qa"><b>Q</b> · Boiling point of water at sea level (°C)?<br><b>A</b> · 100 °C.</p>
+          <div class="meter"><span class="num">0.96</span><span class="track"><i style="width:96%"></i></span></div>
+        </div>
+      </div>
+      <div class="read no">
+        <div class="hd"><span>Channel B</span><span class="v">✗ FABRICATED</span></div>
+        <div class="bd">
+          <p class="qa"><b>Q</b> · Who won the 1931 Nobel Prize in Physics?<br><b>A</b> · Einstein, for the photoelectric effect.</p>
+          <div class="meter"><span class="num">0.11</span><span class="track"><i style="width:11%"></i></span></div>
+        </div>
+      </div>
+    </div>
+    <p class="note">No Physics prize was awarded in 1931. Same instrument, same two lines of code — it simply registers the doubt on Channel B.</p>
+  </div>
+</section>
+
+<!-- USAGE -->
+<section id="usage">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">03</span><h2>Wiring it in</h2></div>
+    <div class="code">
+      <div class="bar"><span>quickstart.py</span><span>python</span></div>
+<pre><code><span class="kw">from</span> pinocchio <span class="kw">import</span> Judge
+
+judge = Judge.from_pretrained(<span class="str">"KevinDavidHayes/pinocchio-text-8b"</span>)
+
+<span class="com"># Score any model's response: OpenAI, Anthropic, vLLM, local HF, anything.</span>
+response = openai.chat.completions.create(model=<span class="str">"gpt-5"</span>, messages=[...])
+p_correct = judge.score(question, response.choices[<span class="num">0</span>].message.content)
+
+<span class="kw">if</span> p_correct &lt; <span class="num">0.5</span>:
+    log(<span class="str">"Low confidence. Flag for human review."</span>)</code></pre>
+    </div>
+    <p class="note">Same API for VLMs: pass an <code>image</code> alongside the <code>question</code>/<code>response</code> and load <code>pinocchio-vlm-8b</code>.</p>
+  </div>
+</section>
+
+<!-- MODULES -->
+<section id="modules">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">04</span><h2>Units</h2></div>
+    <div class="mods">
+      <div class="mod"><div class="u">Unit I</div><h3>pinocchio-text-8b</h3><p>LoRA Llama-3.1-8B judge for text LLMs. <b>0.886 AUROC</b> in-distribution; <b>0.766</b> transferring to Qwen-2.5-7B untrained.</p></div>
+      <div class="mod"><div class="u">Unit II</div><h3>pinocchio-vlm-8b</h3><p>LoRA Qwen3-VL-8B judge for VLMs. <b>0.789 AUROC</b> on vision; <b>0.907</b> on text-only reused as a unified judge.</p></div>
+      <div class="mod"><div class="u">Unit III</div><h3>data-efficient</h3><p>Reaches <b>97%</b> of full performance from just <b>250 labelled examples</b> — cheap to retune for a new domain.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- METHOD -->
+<section id="method">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">05</span><h2>How it reads</h2></div>
+    <div class="cols2">
+      <div class="prose">
+        <p>Given a question <em>Q</em> and candidate answer <em>A</em>, the judge is prompted for a binary verdict and reads P(correct) from the softmax over the next-token logits for <code style="color:var(--truth)">ii</code> (Yes) vs <code style="color:var(--truth)">i</code> (No):</p>
+        <div class="eq">$$\hat p(\text{correct})=\frac{e^{z_{\text{yes}}}}{e^{z_{\text{yes}}}+e^{z_{\text{no}}}}$$</div>
+        <p>It never touches the target model's internals — only its text. Post-hoc temperature scaling sharpens calibration while preserving ranking.</p>
+      </div>
+      <div>
+        <div class="prompt">Question: {Q}
+
+Answer: {A}
+
+Is the answer correct? (i) No  (ii) Yes</div>
+        <p class="note">Training mix: 15+ text benchmarks (GSM8K, BBEH, SimpleQA, GPQA, OmniMath, HLE, …) and 8 vision-language benchmarks (MathVista, MathVerse, CharXiv, MMMU, HallusionBench, VSR, …).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRACES -->
+<section id="traces">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">06</span><h2>Traces</h2></div>
+    <p class="note" style="margin-top:-14px; margin-bottom:24px;">Traces are schematic illustrations; the numerals shown (AUROC 0.886, 0.766; 97% at 250 examples) are the paper's reported values.</p>
+
+    <div class="plate" style="margin-bottom:22px;">
+      <svg viewBox="0 0 900 240" role="img" aria-label="P(correct) separates correct from incorrect answers; AUROC 0.886">
+        <g stroke="#1c222a" stroke-width="1"><line x1="60" y1="185" x2="860" y2="185"/></g>
+        <path d="M110 185 C 190 185 205 60 250 60 C 300 60 320 185 400 185 Z" fill="#ff5b5b" fill-opacity="0.14" stroke="#ff5b5b" stroke-width="1.6"/>
+        <path d="M430 185 C 540 185 560 40 620 40 C 690 40 720 185 820 185 Z" fill="#39d3bf" fill-opacity="0.14" stroke="#39d3bf" stroke-width="1.8"/>
+        <line x1="60" y1="185" x2="870" y2="185" stroke="#2f3843"/>
+        <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#5c6772">
+          <text x="88" y="208">0</text><text x="452" y="208">0.5</text><text x="812" y="208">1.0</text>
+          <text x="400" y="228" fill="#5c6772" letter-spacing="2">P(correct)</text>
+        </g>
+        <g font-family="'JetBrains Mono',monospace" font-size="12">
+          <rect x="80" y="34" width="12" height="12" fill="#ff5b5b" fill-opacity="0.5" stroke="#ff5b5b"/><text x="100" y="45" fill="#8592a0">incorrect</text>
+          <rect x="80" y="54" width="12" height="12" fill="#39d3bf" fill-opacity="0.5" stroke="#39d3bf"/><text x="100" y="65" fill="#8592a0">correct</text>
+        </g>
+        <text x="858" y="52" text-anchor="end" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="40" fill="#dfe6ee">0.886</text>
+        <text x="858" y="70" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="11" letter-spacing="2" fill="#5c6772">AUROC</text>
+      </svg>
+      <div class="cap"><span class="f">Trace 01</span><span>Reading only the text, the instrument drives right and wrong answers apart — discrimination, AUROC 0.886.</span></div>
+    </div>
+
+    <div class="cols2" style="gap:22px;">
+      <div class="plate">
+        <svg viewBox="0 0 420 260" role="img" aria-label="Reliability diagram along the diagonal">
+          <rect x="60" y="25" width="320" height="200" fill="none" stroke="#232a33"/>
+          <line x1="60" y1="225" x2="380" y2="25" stroke="#5c6772" stroke-dasharray="4 5"/>
+          <polyline points="60,220 124,188 188,150 252,108 316,62 380,32" fill="none" stroke="#39d3bf" stroke-width="2.4"/>
+          <g fill="#39d3bf"><circle cx="124" cy="188" r="3"/><circle cx="188" cy="150" r="3"/><circle cx="252" cy="108" r="3"/><circle cx="316" cy="62" r="3"/></g>
+          <g font-family="'JetBrains Mono',monospace" font-size="11" fill="#5c6772">
+            <text x="220" y="248" text-anchor="middle">confidence</text>
+            <text x="24" y="130" text-anchor="middle" transform="rotate(-90 24 130)">accuracy</text>
+            <text x="150" y="52" fill="#8592a0" font-style="italic">perfect</text>
+          </g>
+        </svg>
+        <div class="cap"><span class="f">Trace 02</span><span>Calibrated after temperature scaling — stated confidence tracks accuracy.</span></div>
+      </div>
+      <div class="plate">
+        <svg viewBox="0 0 420 260" role="img" aria-label="AUROC rises then plateaus; 250 examples reach 97 percent">
+          <line x1="64" y1="30" x2="64" y2="222" stroke="#232a33"/><line x1="64" y1="222" x2="392" y2="222" stroke="#232a33"/>
+          <path d="M64 222 C 88 150 116 70 150 54 C 240 46 320 44 388 42" fill="none" stroke="#39d3bf" stroke-width="2.6"/>
+          <line x1="150" y1="54" x2="150" y2="222" stroke="#ff5b5b" stroke-dasharray="4 5"/>
+          <circle cx="150" cy="54" r="4.5" fill="#ff5b5b"/>
+          <g font-family="'JetBrains Mono',monospace" font-size="11" fill="#5c6772">
+            <text x="56" y="36" text-anchor="end">.90</text><text x="56" y="225" text-anchor="end">.50</text>
+            <text x="150" y="240" text-anchor="middle" fill="#ff5b5b">250</text><text x="388" y="240" text-anchor="middle">full</text>
+            <text x="230" y="256" text-anchor="middle">labelled examples</text>
+          </g>
+          <text x="168" y="50" font-family="'Space Grotesk',sans-serif" font-weight="600" font-size="16" fill="#dfe6ee">97% of full</text>
+        </svg>
+        <div class="cap"><span class="f">Trace 03</span><span>Data-efficient — 250 examples reach 97% of full-data AUROC.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CITE -->
+<section id="cite">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">07</span><h2>Cite</h2></div>
+    <div class="code">
+      <div class="bar"><span>pinocchio.bib</span><span>bibtex</span></div>
+<pre><code><span class="kw">@inproceedings</span>{hayes2026pinocchio,
+  title     = {Pinocchio: Estimating the Uncertainty of Black-Box Language Models},
+  author    = {Hayes, Kevin David},
+  booktitle = {Under review at COLM},
+  year      = {<span class="num">2026</span>}
+}</code></pre>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap">
+    <p>Local preview while the paper is under review. Code repository and HuggingFace Space are currently private; links resolve once the paper is released. Instrument panel typeset in Space Grotesk &amp; JetBrains Mono.</p>
+  </div>
+</footer>
+
+</body>
+</html>

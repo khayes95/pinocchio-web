@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Pinocchio — Design Directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{ --bg:#eceae4; --ink:#141414; --sub:#5c5c58; --line:#cfcdc6; --red:#e2231a; }
+*{ box-sizing:border-box; }
+body{ margin:0; background:var(--bg); color:var(--ink); font-family:"Archivo",system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px); background-size:46px 46px; }
+.wrap{ max-width:1080px; margin:0 auto; padding:0 28px; }
+.mono{ font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--sub); }
+header{ padding:70px 0 34px; }
+header .k{ display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+header .k .sq{ width:12px; height:12px; background:var(--red); }
+h1{ font-weight:900; font-size:clamp(44px,8vw,92px); line-height:.94; letter-spacing:-.035em; margin:0 0 16px; }
+h1 .o{ color:var(--red); }
+.lede{ font-size:clamp(18px,2.4vw,24px); font-weight:600; color:var(--sub); max-width:44ch; margin:0; }
+.note{ font-family:"Space Mono",monospace; font-size:12.5px; color:var(--sub); margin-top:20px; max-width:70ch; line-height:1.7; }
+.note b{ color:var(--ink); }
+
+.cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; padding:14px 0 70px; }
+@media(max-width:860px){ .cards{ grid-template-columns:1fr; } }
+.card{ display:block; text-decoration:none; color:inherit; background:#fff; border:1px solid var(--ink); transition:transform .12s, box-shadow .12s; }
+.card:hover{ transform:translate(-2px,-2px); box-shadow:8px 8px 0 var(--ink); }
+.swatch{ height:150px; position:relative; overflow:hidden; border-bottom:1px solid var(--ink); }
+.card .body{ padding:20px 20px 22px; }
+.card .n{ font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--red); }
+.card h2{ font-weight:800; font-size:23px; margin:8px 0 8px; letter-spacing:-.01em; }
+.card p{ font-size:14px; color:var(--sub); line-height:1.55; margin:0; }
+.card .go{ font-family:"Space Mono",monospace; font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin-top:16px; color:var(--ink); }
+.card .go::after{ content:" →"; color:var(--red); }
+
+/* A — catalogue swatch */
+.sw-a{ background:#f2ecdc; }
+.sw-a .gauge{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+.sw-a .needle{ width:2px; height:44px; background:#211c15; transform-origin:bottom center; transform:rotate(28deg); }
+.sw-a .dot{ position:absolute; width:9px; height:9px; border-radius:50%; background:#211c15; }
+.sw-a .arc{ position:absolute; width:118px; height:59px; border:3px solid #b0331c; border-bottom:0; border-top-left-radius:120px; border-top-right-radius:120px; }
+/* B — instrument swatch */
+.sw-b{ background:#0c0e11; background-image:linear-gradient(#1c222a 1px,transparent 1px),linear-gradient(90deg,#1c222a 1px,transparent 1px); background-size:22px 22px; }
+.sw-b svg{ position:absolute; inset:0; width:100%; height:100%; }
+/* C — swiss swatch */
+.sw-c{ background:#f4f4f1; }
+.sw-c .big{ position:absolute; left:16px; bottom:8px; font-weight:900; font-size:64px; letter-spacing:-.04em; color:#141414; line-height:1; }
+.sw-c .big .u{ color:#e2231a; }
+.sw-c .bar{ position:absolute; top:22px; left:16px; right:16px; height:10px; background:#dededa; }
+.sw-c .bar i{ display:block; height:100%; width:88%; background:#e2231a; }
+
+footer{ border-top:1px solid var(--ink); padding:26px 0 60px; }
+footer p{ font-family:"Space Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--sub); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="k"><span class="sq"></span><span class="mono">Pinocchio · project page · design directions</span></div>
+    <h1>Pin<span class="o">o</span>cchio — three looks.</h1>
+    <p class="lede">Same paper, same numbers. Three ways to dress the project page. Click in.</p>
+    <p class="note"><b>For review, not release.</b> Figures on each page are schematic; the numerals shown (AUROC 0.886, 0.766; 97% at 250 examples) are the paper's reported values. The full PDF is not hosted here. Pages are set to <b>noindex</b>.</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="cards">
+    <a class="card" href="catalogue.html">
+      <div class="swatch sw-a">
+        <div class="arc"></div>
+        <div class="gauge"><div class="needle"></div></div>
+        <div class="dot"></div>
+      </div>
+      <div class="body">
+        <div class="n">Direction A</div>
+        <h2>Catalogue</h2>
+        <p>A warm 19th-c. exhibition catalogue — laid paper, serif display, a P(correct) gauge, nose-as-ruler, plates &amp; folios.</p>
+        <div class="go">Open</div>
+      </div>
+    </a>
+    <a class="card" href="instrument.html">
+      <div class="swatch sw-b">
+        <svg viewBox="0 0 300 150" preserveAspectRatio="none">
+          <line x1="0" y1="75" x2="300" y2="75" stroke="#2f3843" stroke-dasharray="3 5"/>
+          <polyline fill="none" stroke="#39d3bf" stroke-width="2" points="0,72 40,70 70,74 95,71 110,24 125,71 160,73 190,68 210,72 235,70 250,20 265,72 300,72"/>
+          <circle cx="110" cy="24" r="3.5" fill="#ff5b5b"/><circle cx="250" cy="20" r="3.5" fill="#ff5b5b"/>
+        </svg>
+      </div>
+      <div class="body">
+        <div class="n">Direction B</div>
+        <h2>Instrument</h2>
+        <p>A dark polygraph / lie-detector panel — live strip-chart, "lie" spikes, truth-teal vs lie-red channels. Most on-theme.</p>
+        <div class="go">Open</div>
+      </div>
+    </a>
+    <a class="card" href="swiss.html">
+      <div class="swatch sw-c">
+        <div class="bar"><i></i></div>
+        <div class="big">0.886<span class="u">.</span></div>
+      </div>
+      <div class="body">
+        <div class="n">Direction C</div>
+        <h2>Swiss</h2>
+        <p>Bright, gridded, editorial — huge grotesque type, one red accent, big typographic stats. Fastest to read.</p>
+        <div class="go">Open</div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap"><p>Pinocchio · Kevin David Hayes · University of Maryland · under review at COLM 2026 · preview only</p></div>
+</footer>
+</body>
+</html>
