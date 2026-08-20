@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>Pinocchio — Uncertainty Instrument</title>
+<title>Pinocchio · Uncertainty Instrument</title>
 <meta name="description" content="Pinocchio: a plug-in uncertainty estimator for black-box LLMs and VLMs. Score any model's response with P(correct) in two lines of code.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -158,7 +158,7 @@ section{ padding:56px 0; position:relative; z-index:1; }
   <div class="wrap">
     <p class="ey">Black-box uncertainty · <b>P(correct)</b> for any model</p>
     <h1>Pin<span class="n">o</span>cchio</h1>
-    <p class="sub">A lie detector for language models. It reads only the <b>text</b> of a response and returns the probability the answer is correct — no log-probs, no samples, no weights.</p>
+    <p class="sub">A lie detector for language models. It reads only the <b>text</b> of a response and returns the probability the answer is correct, with no log-probs, no samples, no weights. One judge scores even the newest black-box systems it never saw: <b>Claude Opus 5, GPT-5.6, Kimi 3, Fable 5.</b></p>
     <p class="meta">Kevin David Hayes · <a href="https://khayes95.github.io/">University of Maryland, College Park</a></p>
     <p class="venue">◦ Under review at COLM 2026</p>
 
@@ -208,12 +208,12 @@ section{ padding:56px 0; position:relative; z-index:1; }
     <div class="sechead"><span class="tag">01</span><h2>The brief</h2></div>
     <div class="cols2">
       <div class="prose">
-        <p>In high-stakes settings you need not only accurate models but honest uncertainty per prediction. The usual tools — log-probabilities, sampling, fine-tuning — are exactly what a closed API withholds.</p>
+        <p>In high-stakes settings you need not only accurate models but honest uncertainty per prediction. The usual tools (log-probabilities, sampling, fine-tuning) are exactly what a closed API withholds.</p>
         <p><strong>Pinocchio</strong> is a suite of 8B checkpoints that assigns an uncertainty estimate to any model's prediction using only the <em>text</em> of the response. Text LLMs and vision-language models alike.</p>
       </div>
       <div class="prose">
         <p>It transfers across model families without retraining and plugs into an existing pipeline in two lines. We train it on a curated, difficulty-spread mixture of hard benchmarks so it sees confident successes and confident failures.</p>
-        <p>Against black-box baselines it wins on calibration and discrimination — and generalises to models whose responses it never trained on.</p>
+        <p>Against black-box baselines it wins on calibration and discrimination, and generalises to models whose responses it never trained on.</p>
       </div>
     </div>
   </div>
@@ -239,7 +239,7 @@ section{ padding:56px 0; position:relative; z-index:1; }
         </div>
       </div>
     </div>
-    <p class="note">No Physics prize was awarded in 1931. Same instrument, same two lines of code — it simply registers the doubt on Channel B.</p>
+    <p class="note">No Physics prize was awarded in 1931. Same instrument, same two lines of code. It simply registers the doubt on Channel B.</p>
   </div>
 </section>
 
@@ -254,7 +254,7 @@ section{ padding:56px 0; position:relative; z-index:1; }
 judge = Judge.from_pretrained(<span class="str">"KevinDavidHayes/pinocchio-text-8b"</span>)
 
 <span class="com"># Score any model's response: OpenAI, Anthropic, vLLM, local HF, anything.</span>
-response = openai.chat.completions.create(model=<span class="str">"gpt-5"</span>, messages=[...])
+response = openai.chat.completions.create(model=<span class="str">"gpt-5.6"</span>, messages=[...])
 p_correct = judge.score(question, response.choices[<span class="num">0</span>].message.content)
 
 <span class="kw">if</span> p_correct &lt; <span class="num">0.5</span>:
@@ -269,9 +269,9 @@ p_correct = judge.score(question, response.choices[<span class="num">0</span>].m
   <div class="wrap">
     <div class="sechead"><span class="tag">04</span><h2>Units</h2></div>
     <div class="mods">
-      <div class="mod"><div class="u">Unit I</div><h3>pinocchio-text-8b</h3><p>LoRA Llama-3.1-8B judge for text LLMs. <b>0.886 AUROC</b> in-distribution; <b>0.766</b> transferring to Qwen-2.5-7B untrained.</p></div>
-      <div class="mod"><div class="u">Unit II</div><h3>pinocchio-vlm-8b</h3><p>LoRA Qwen3-VL-8B judge for VLMs. <b>0.789 AUROC</b> on vision; <b>0.907</b> on text-only reused as a unified judge.</p></div>
-      <div class="mod"><div class="u">Unit III</div><h3>data-efficient</h3><p>Reaches <b>97%</b> of full performance from just <b>250 labelled examples</b> — cheap to retune for a new domain.</p></div>
+      <div class="mod"><div class="u">Unit I</div><h3>One transferable judge</h3><p>A single 8B calibrator hits <b>0.878 AUROC</b> on the hard suite and transfers zero-shot to <b>16 unseen models across 9 orgs</b>, the four newest frontier systems among them.</p></div>
+      <div class="mod"><div class="u">Unit II</div><h3>Text and vision, one checkpoint</h3><p>Scores text-LLM and vision-language responses at <b>comparable AUROC</b>, so there is no separate per-modality model to run.</p></div>
+      <div class="mod"><div class="u">Unit III</div><h3>Small, and correctable</h3><p>The <b>0.8B</b> model keeps <b>99%</b> of the 9B AUROC, and about <b>100 labels</b> halve the calibration error on a new model.</p></div>
     </div>
   </div>
 </section>
@@ -284,7 +284,7 @@ p_correct = judge.score(question, response.choices[<span class="num">0</span>].m
       <div class="prose">
         <p>Given a question <em>Q</em> and candidate answer <em>A</em>, the judge is prompted for a binary verdict and reads P(correct) from the softmax over the next-token logits for <code style="color:var(--truth)">ii</code> (Yes) vs <code style="color:var(--truth)">i</code> (No):</p>
         <div class="eq">$$\hat p(\text{correct})=\frac{e^{z_{\text{yes}}}}{e^{z_{\text{yes}}}+e^{z_{\text{no}}}}$$</div>
-        <p>It never touches the target model's internals — only its text. Post-hoc temperature scaling sharpens calibration while preserving ranking.</p>
+        <p>It never touches the target model's internals, only its text. Post-hoc temperature scaling sharpens calibration while preserving ranking.</p>
       </div>
       <div>
         <div class="prompt">Question: {Q}
@@ -302,10 +302,36 @@ Is the answer correct? (i) No  (ii) Yes</div>
 <section id="traces">
   <div class="wrap">
     <div class="sechead"><span class="tag">06</span><h2>Traces</h2></div>
-    <p class="note" style="margin-top:-14px; margin-bottom:24px;">Traces are schematic illustrations; the numerals shown (AUROC 0.886, 0.766; 97% at 250 examples) are the paper's reported values.</p>
+    <p class="note" style="margin-top:-14px; margin-bottom:24px;">Traces are schematic illustrations; the numerals shown (flagship 0.878 AUROC; frontier transfer 0.822 to 0.854, pooled 0.837; 97% of full performance at 250 labels) are the paper's reported values.</p>
 
     <div class="plate" style="margin-bottom:22px;">
-      <svg viewBox="0 0 900 240" role="img" aria-label="P(correct) separates correct from incorrect answers; AUROC 0.886">
+      <svg viewBox="0 0 900 250" role="img" aria-label="Zero-shot transfer AUROC on the four newest frontier models: Kimi 3 0.854, Opus 5 0.845, GPT-5.6 0.830, Fable 5 0.822">
+        <g stroke="#232a33" stroke-width="1">
+          <line x1="300" y1="26" x2="300" y2="200"/><line x1="570" y1="26" x2="570" y2="200"/><line x1="840" y1="26" x2="840" y2="200"/>
+        </g>
+        <line x1="643" y1="26" x2="643" y2="200" stroke="#ff5b5b" stroke-width="1" stroke-dasharray="3 5"/>
+        <text x="643" y="20" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="11" fill="#ff5b5b">their own confidence · 0.69</text>
+        <g font-family="'JetBrains Mono',monospace" font-size="14" fill="#8592a0">
+          <rect x="300" y="34" width="477.9" height="28" fill="#39d3bf" fill-opacity="0.85"/>
+          <text x="292" y="53" text-anchor="end">Kimi 3</text><text x="786" y="53" fill="#dfe6ee" font-weight="700">0.854</text>
+          <rect x="300" y="76" width="465.75" height="28" fill="#39d3bf" fill-opacity="0.85"/>
+          <text x="292" y="95" text-anchor="end">Claude Opus 5</text><text x="774" y="95" fill="#dfe6ee" font-weight="700">0.845</text>
+          <rect x="300" y="118" width="445.5" height="28" fill="#39d3bf" fill-opacity="0.85"/>
+          <text x="292" y="137" text-anchor="end">GPT-5.6</text><text x="754" y="137" fill="#dfe6ee" font-weight="700">0.830</text>
+          <rect x="300" y="160" width="434.7" height="28" fill="#39d3bf" fill-opacity="0.85"/>
+          <text x="292" y="179" text-anchor="end">Claude Fable 5</text><text x="743" y="179" fill="#dfe6ee" font-weight="700">0.822</text>
+        </g>
+        <line x1="300" y1="200" x2="840" y2="200" stroke="#2f3843" stroke-width="1.2"/>
+        <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#5c6772">
+          <text x="300" y="218" text-anchor="middle">0.5</text><text x="570" y="218" text-anchor="middle">0.7</text><text x="840" y="218" text-anchor="middle">0.9</text>
+          <text x="570" y="240" text-anchor="middle">AUROC · zero-shot, no target labels</text>
+        </g>
+      </svg>
+      <div class="cap"><span class="f">Trace 00</span><span>Zero-shot transfer. One calibrator, trained only on older models, scores the four newest black-box systems it never saw. Pooled 0.837 against 0.691 for the models' own verbalized confidence.</span></div>
+    </div>
+
+    <div class="plate" style="margin-bottom:22px;">
+      <svg viewBox="0 0 900 240" role="img" aria-label="P(correct) separates correct from incorrect answers; AUROC 0.878">
         <g stroke="#1c222a" stroke-width="1"><line x1="60" y1="185" x2="860" y2="185"/></g>
         <path d="M110 185 C 190 185 205 60 250 60 C 300 60 320 185 400 185 Z" fill="#ff5b5b" fill-opacity="0.14" stroke="#ff5b5b" stroke-width="1.6"/>
         <path d="M430 185 C 540 185 560 40 620 40 C 690 40 720 185 820 185 Z" fill="#39d3bf" fill-opacity="0.14" stroke="#39d3bf" stroke-width="1.8"/>
@@ -318,10 +344,10 @@ Is the answer correct? (i) No  (ii) Yes</div>
           <rect x="80" y="34" width="12" height="12" fill="#ff5b5b" fill-opacity="0.5" stroke="#ff5b5b"/><text x="100" y="45" fill="#8592a0">incorrect</text>
           <rect x="80" y="54" width="12" height="12" fill="#39d3bf" fill-opacity="0.5" stroke="#39d3bf"/><text x="100" y="65" fill="#8592a0">correct</text>
         </g>
-        <text x="858" y="52" text-anchor="end" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="40" fill="#dfe6ee">0.886</text>
+        <text x="858" y="52" text-anchor="end" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="40" fill="#dfe6ee">0.878</text>
         <text x="858" y="70" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="11" letter-spacing="2" fill="#5c6772">AUROC</text>
       </svg>
-      <div class="cap"><span class="f">Trace 01</span><span>Reading only the text, the instrument drives right and wrong answers apart — discrimination, AUROC 0.886.</span></div>
+      <div class="cap"><span class="f">Trace 01</span><span>Reading only the text, the instrument drives right and wrong answers apart. Discrimination, AUROC 0.878.</span></div>
     </div>
 
     <div class="cols2" style="gap:22px;">
@@ -337,7 +363,7 @@ Is the answer correct? (i) No  (ii) Yes</div>
             <text x="150" y="52" fill="#8592a0" font-style="italic">perfect</text>
           </g>
         </svg>
-        <div class="cap"><span class="f">Trace 02</span><span>Calibrated after temperature scaling — stated confidence tracks accuracy.</span></div>
+        <div class="cap"><span class="f">Trace 02</span><span>Calibrated after temperature scaling: stated confidence tracks accuracy.</span></div>
       </div>
       <div class="plate">
         <svg viewBox="0 0 420 260" role="img" aria-label="AUROC rises then plateaus; 250 examples reach 97 percent">
@@ -352,16 +378,27 @@ Is the answer correct? (i) No  (ii) Yes</div>
           </g>
           <text x="168" y="50" font-family="'Space Grotesk',sans-serif" font-weight="600" font-size="16" fill="#dfe6ee">97% of full</text>
         </svg>
-        <div class="cap"><span class="f">Trace 03</span><span>Data-efficient — 250 examples reach 97% of full-data AUROC.</span></div>
+        <div class="cap"><span class="f">Trace 03</span><span>Data-efficient. 250 examples reach 97% of full-data AUROC.</span></div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- LIVE DEMO -->
+<section id="demo">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">07</span><h2>Live demo</h2></div>
+    <div class="plate" style="padding:0; overflow:hidden;">
+      <iframe src="https://kevindavidhayes-pinocchio.hf.space" title="Pinocchio live demo" loading="lazy" style="width:100%; height:720px; border:0; display:block; background:#0a0c0f;"></iframe>
+    </div>
+    <p class="note" style="margin-top:12px;">If this panel is blank, the demo Space is still private; it renders here once it is public. <a href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio">Open the Space in a new tab.</a></p>
   </div>
 </section>
 
 <!-- CITE -->
 <section id="cite">
   <div class="wrap">
-    <div class="sechead"><span class="tag">07</span><h2>Cite</h2></div>
+    <div class="sechead"><span class="tag">08</span><h2>Cite</h2></div>
     <div class="code">
       <div class="bar"><span>pinocchio.bib</span><span>bibtex</span></div>
 <pre><code><span class="kw">@inproceedings</span>{hayes2026pinocchio,
