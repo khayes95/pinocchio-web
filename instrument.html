@@ -82,25 +82,6 @@ a{ color:var(--truth); text-decoration:none; }
 .venue{ font-family:var(--mono); font-size:12.5px; color:var(--amber); letter-spacing:.06em; margin:8px 0 0; }
 .venue::before{ content:"\25C9"; margin-right:8px; }
 
-/* readout rack */
-.readout{ margin:30px 0 4px; border:1px solid var(--line2); background:linear-gradient(180deg,var(--panel),var(--bg2)); }
-.readout .top{ display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--faint); }
-.readout .top .rec{ color:var(--lie); }
-.readout .top .rec .b{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--lie); box-shadow:0 0 8px var(--lie); margin-right:7px; vertical-align:middle; animation:blink 2.2s infinite; }
-.readout .body{ display:grid; grid-template-columns:1fr 250px; }
-@media(max-width:760px){ .readout .body{ grid-template-columns:1fr; } .readout .digits{ border-left:0!important; border-top:1px solid var(--line); } }
-.readout .strip{ position:relative; padding:6px 6px 2px; }
-.readout .strip svg{ width:100%; height:auto; display:block; }
-.readout .strip .cap{ font-family:var(--mono); font-size:10.5px; color:var(--faint); letter-spacing:.06em; padding:2px 10px 8px; }
-.readout .digits{ border-left:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:18px 14px; gap:6px; }
-.readout .digits svg{ width:200px; max-width:100%; height:auto; display:block; }
-.readout .digits .val{ font-family:var(--disp); font-weight:700; font-size:54px; color:var(--truth); line-height:1; letter-spacing:-.02em; text-shadow:0 0 24px rgba(47,227,203,.4); }
-.readout .digits .lab{ font-family:var(--mono); font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--faint); }
-.readout .digits .stat{ font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--truth); }
-.readout.alert{ border-color:var(--lie-d); box-shadow:0 0 0 1px rgba(255,91,91,.25), 0 0 34px -14px var(--lie); }
-.readout.alert .digits .val{ color:var(--lie); text-shadow:0 0 24px rgba(255,91,91,.45); }
-.readout.alert .digits .stat{ color:var(--lie); }
-#hero-needle{ transition:transform .16s linear; transform-origin:100px 100px; }
 
 /* buttons */
 .btns{ display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; }
@@ -201,14 +182,10 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
 .foot{ border-top:1px solid var(--line2); padding:38px 0 64px; }
 .foot p{ color:var(--faint); font-family:var(--mono); font-size:12px; letter-spacing:.02em; max-width:80ch; line-height:1.65; }
 
-/* shatter */
-.sh-flyer{ position:fixed; margin:0; padding:0; pointer-events:none; z-index:99999; white-space:pre; }
-[data-shatter]{ cursor:pointer; }
-[data-shatter]:hover{ opacity:.78; }
 @media (prefers-reduced-motion: reduce){
   html{ scroll-behavior:auto; }
-  #hero-needle,.pino-demo .pd-needle,.pino-demo .pd-bar i{ transition:none; }
-  .status .id .dot,.readout .top .rec .b{ animation:none; }
+  .pino-demo .pd-needle,.pino-demo .pd-bar i{ transition:none; }
+  .status .id .dot{ animation:none; }
 }
 </style>
 </head>
@@ -227,77 +204,13 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
 <section class="hero">
   <div class="wrap">
     <p class="ey">A lie detector for language models &nbsp;/&nbsp; <b>P(correct)</b> for any black-box API</p>
-    <h1 data-shatter>Pin<span class="n">o</span>cchio</h1>
+    <h1>Pin<span class="n">o</span>cchio</h1>
     <p class="sub">One external calibrator reads only the <b>text</b> of a response and returns the probability it is correct, in a <b>single forward pass</b>. No log-probabilities, no sampling, no weights, no fine-tuning of the target. It scores even the newest closed systems it never saw, <b>Claude Fable 5</b>, <b>Claude Opus 5</b>, <b>GPT-5.6</b>, and <b>Kimi 3</b>, and flags the <span class="lie">confident fabrications</span>.</p>
 
     <p class="authors"><b>Kevin David Hayes</b>, Arka Pal, Haosong Zhang, Tom Goldstein, Micah Goldblum</p>
     <p class="affil"><a href="https://khayes95.github.io/">University of Maryland, College Park</a></p>
     <p class="venue">Accepted to COLM 2026</p>
 
-    <!-- polygraph readout rack -->
-    <div class="readout bezel" id="hero-readout">
-      <div class="top">
-        <span>CH-1 &nbsp;//&nbsp; P(correct) monitor</span>
-        <span class="rec"><span class="b"></span>REC &nbsp; <span id="hs-idx" style="color:var(--faint)">00000</span></span>
-      </div>
-      <div class="body">
-        <div class="strip">
-          <svg viewBox="0 0 900 220" role="img" aria-label="A polygraph-style trace of P(correct). A calm truth-teal line stays high, with occasional lie-red dips where the calibrator flags a likely error.">
-            <g stroke="#1a212a" stroke-width="1">
-              <line x1="30" y1="24" x2="890" y2="24"/>
-              <line x1="30" y1="110" x2="890" y2="110"/>
-              <line x1="30" y1="196" x2="890" y2="196"/>
-            </g>
-            <line x1="30" y1="110" x2="890" y2="110" stroke="#2b333d" stroke-dasharray="3 6"/>
-            <text x="884" y="106" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">decision 0.5</text>
-            <polyline id="hs-teal-glow" fill="none" stroke="#2fe3cb" stroke-opacity="0.18" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" points=""/>
-            <path id="hs-red-glow" fill="none" stroke="#ff5b5b" stroke-opacity="0.22" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" d=""/>
-            <polyline id="hs-teal" fill="none" stroke="#2fe3cb" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points=""/>
-            <path id="hs-red" fill="none" stroke="#ff5b5b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" d=""/>
-            <g id="hs-marks"></g>
-            <circle id="hs-cur" cx="890" cy="86" r="3.6" fill="#2fe3cb"/>
-            <g font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#7b8592">
-              <text x="26" y="27" text-anchor="end">1.0</text>
-              <text x="26" y="114" text-anchor="end">0.5</text>
-              <text x="26" y="199" text-anchor="end">0.0</text>
-            </g>
-          </svg>
-          <div class="cap">Illustrative trace, synthetic data. Truth-teal holds high, lie-red dips mark flagged answers.</div>
-        </div>
-        <div class="digits">
-          <svg viewBox="0 0 200 132" aria-hidden="true">
-            <path d="M22 100 A78 78 0 0 1 100 22" fill="none" stroke="#ff5b5b" stroke-width="8" opacity="0.55"/>
-            <path d="M100 22 A78 78 0 0 1 178 100" fill="none" stroke="#2fe3cb" stroke-width="8" opacity="0.8"/>
-            <g stroke="#3a434e" stroke-width="1.4">
-              <line x1="20" y1="100" x2="29" y2="100"/>
-              <line x1="23.91" y1="75.28" x2="32.47" y2="78.06"/>
-              <line x1="35.28" y1="52.98" x2="42.56" y2="58.27"/>
-              <line x1="52.98" y1="35.28" x2="58.27" y2="42.56"/>
-              <line x1="75.28" y1="23.91" x2="78.06" y2="32.47"/>
-              <line x1="124.72" y1="23.91" x2="121.94" y2="32.47"/>
-              <line x1="147.02" y1="35.28" x2="141.73" y2="42.56"/>
-              <line x1="164.72" y1="52.98" x2="157.44" y2="58.27"/>
-              <line x1="176.09" y1="75.28" x2="167.53" y2="78.06"/>
-            </g>
-            <g stroke="#59636e" stroke-width="2">
-              <line x1="20" y1="100" x2="31" y2="100"/>
-              <line x1="100" y1="20" x2="100" y2="31"/>
-              <line x1="180" y1="100" x2="169" y2="100"/>
-            </g>
-            <text x="18" y="114" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">0</text>
-            <text x="100" y="15" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">0.5</text>
-            <text x="184" y="114" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">1</text>
-            <text x="44" y="94" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b13a3a" letter-spacing="1">LIE</text>
-            <text x="156" y="94" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#1f9d8c" letter-spacing="1">TRUE</text>
-            <line id="hero-needle" x1="100" y1="100" x2="100" y2="36" stroke="#e4ebf2" stroke-width="3" stroke-linecap="round"/>
-            <circle cx="100" cy="100" r="6" fill="#e4ebf2"/>
-          </svg>
-          <div class="lab">P(correct)</div>
-          <div class="val" id="hero-pval">0.88</div>
-          <div class="stat" id="hero-status">TRACKING</div>
-        </div>
-      </div>
-    </div>
 
     <div class="btns">
       <span class="btn off"><span class="k">[</span>Paper &middot; on request<span class="k">]</span></span>
@@ -383,7 +296,7 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
       </div>
       <div class="prose">
         <p>The mixture is deliberate. Train only on models that are almost always right and the calibrator rarely sees a confident failure, so it learns little.</p>
-        <p>Spanning a range of capability shows it confident successes <em>and</em> confident mistakes, which is what lets <em>P(correct)</em> tell the two apart. The trace below is that separation on the held-out frontier set.</p>
+        <p>Spanning a range of capability shows it confident successes <em>and</em> confident mistakes, which is what lets <em>P(correct)</em> tell the two apart.</p>
       </div>
     </div>
 
@@ -405,28 +318,10 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
           <span class="mchip d">Qwen3.5-397B</span>
         </div>
       </div>
-      <div class="arrow">All seven feed <b>one</b> jointly trained checkpoint, not seven. The diverse sources are what carry it to unseen model families (Section 04).</div>
+      <div class="arrow">All seven feed <b>one</b> jointly trained checkpoint.</div>
     </div>
 
-    <div class="plate bezel" style="margin-top:22px;">
-      <div class="phd"><span class="f">Trace 02-A</span><span>held-out discrimination, frontier sources</span></div>
-      <svg viewBox="0 0 900 250" role="img" aria-label="Distributions of P(correct) for correct versus incorrect answers, well separated, AUROC 0.862.">
-        <line x1="70" y1="195" x2="860" y2="195" stroke="#2b333d" stroke-width="1.2"/>
-        <path d="M110 195 C 190 195 208 66 258 66 C 308 66 330 195 408 195 Z" fill="#ff5b5b" fill-opacity="0.14" stroke="#ff5b5b" stroke-width="1.6"/>
-        <path d="M440 195 C 552 195 574 42 636 42 C 700 42 730 195 828 195 Z" fill="#2fe3cb" fill-opacity="0.15" stroke="#2fe3cb" stroke-width="1.9"/>
-        <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#7b8592">
-          <text x="96" y="216">0.0</text><text x="452" y="216" text-anchor="middle">0.5</text><text x="836" y="216" text-anchor="end">1.0</text>
-          <text x="465" y="238" text-anchor="middle" letter-spacing="1.5">P(correct) assigned by the calibrator</text>
-        </g>
-        <g font-family="'JetBrains Mono',monospace" font-size="12">
-          <rect x="86" y="34" width="12" height="12" fill="#ff5b5b" fill-opacity="0.5" stroke="#ff5b5b"/><text x="106" y="45" fill="#8b98a5">incorrect answers</text>
-          <rect x="86" y="54" width="12" height="12" fill="#2fe3cb" fill-opacity="0.5" stroke="#2fe3cb"/><text x="106" y="65" fill="#8b98a5">correct answers</text>
-        </g>
-        <text x="852" y="58" text-anchor="end" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="44" fill="#e4ebf2">0.862</text>
-        <text x="852" y="76" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="11" letter-spacing="2.5" fill="#7b8592">AUROC</text>
-      </svg>
-      <div class="cap"><span>One calibrator, held out on the four frontier source models. Reading only text, it drives right and wrong answers apart.</span></div>
-    </div>
+    
   </div>
 </section>
 
@@ -696,161 +591,13 @@ p_correct = judge.<span class="fn">score</span>(question=question, answer=answer
 
 <footer class="foot">
   <div class="wrap">
-    <p>Local preview. Accepted to COLM 2026; arXiv and PDF follow shortly, paper available on request until then. Code and HuggingFace Space are private and resolve on release. The clinical example is illustrative, not medical advice. Every numeral is a reported value; figure shapes are schematic, and the strip chart and gauge are illustrative. Set in Space Grotesk and JetBrains Mono.</p>
+    <p>Local preview. Accepted to COLM 2026; arXiv and PDF follow shortly, paper available on request until then. Code and HuggingFace Space are private and resolve on release. The clinical example is illustrative, not medical advice. Every numeral is a reported value; figure shapes are schematic, and the demo gauge is illustrative. Set in Space Grotesk and JetBrains Mono.</p>
   </div>
 </footer>
 
 <script>
 (function(){
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  /* ---------- click to shatter (event delegation) ---------- */
-  function splitChars(root){
-    var tw=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null), t, texts=[];
-    while(t=tw.nextNode()) texts.push(t);
-    var spans=[];
-    texts.forEach(function(tn){
-      var frag=document.createDocumentFragment();
-      Array.prototype.forEach.call(tn.nodeValue, function(ch){
-        if(ch===' '||ch==='\n'||ch==='\t'){ frag.appendChild(document.createTextNode(ch)); return; }
-        var s=document.createElement('span'); s.textContent=ch; frag.appendChild(s); spans.push(s);
-      });
-      tn.parentNode.replaceChild(frag,tn);
-    });
-    return spans;
-  }
-  function shatter(el){
-    if(el.__busy) return; el.__busy=true;
-    var original=el.innerHTML;
-    if(reduce){ el.style.transition='opacity .3s'; el.style.opacity='0';
-      setTimeout(function(){ el.style.opacity='1'; el.__busy=false; }, 500); return; }
-    var spans=splitChars(el), flyers=[];
-    spans.forEach(function(s){
-      var r=s.getBoundingClientRect(); if(!r.width&&!r.height) return;
-      var cs=getComputedStyle(s), f=document.createElement('span');
-      f.className='sh-flyer'; f.textContent=s.textContent;
-      f.style.left=r.left+'px'; f.style.top=r.top+'px';
-      f.style.fontFamily=cs.fontFamily; f.style.fontSize=cs.fontSize; f.style.fontWeight=cs.fontWeight;
-      f.style.fontStyle=cs.fontStyle; f.style.letterSpacing=cs.letterSpacing; f.style.textTransform=cs.textTransform;
-      f.style.color=cs.color; f.style.lineHeight=cs.lineHeight;
-      f.style.transition='transform .95s cubic-bezier(.18,.72,.2,1), opacity 1s ease, filter .95s ease';
-      document.body.appendChild(f); flyers.push(f);
-    });
-    el.style.visibility='hidden';
-    requestAnimationFrame(function(){ requestAnimationFrame(function(){
-      flyers.forEach(function(f){
-        var a=Math.random()*6.283, d=55+Math.random()*175;
-        var dx=Math.cos(a)*d, dy=Math.sin(a)*d*0.65-(30+Math.random()*80);
-        f.style.transform='translate('+dx.toFixed(1)+'px,'+dy.toFixed(1)+'px) rotate('+((Math.random()*2-1)*240).toFixed(0)+'deg) scale('+(0.5+Math.random()*0.6).toFixed(2)+')';
-        f.style.opacity='0'; f.style.filter='blur(1.4px)';
-      });
-    });});
-    setTimeout(function(){
-      flyers.forEach(function(f){ f.parentNode&&f.parentNode.removeChild(f); });
-      el.innerHTML=original; el.style.visibility='';
-      el.style.transition='none'; el.style.opacity='0';
-      requestAnimationFrame(function(){ el.style.transition='opacity .55s ease'; el.style.opacity='1';
-        setTimeout(function(){ el.style.transition=''; el.__busy=false; }, 560); });
-    }, 1050);
-  }
-  document.addEventListener('click', function(e){
-    var el=e.target.closest && e.target.closest('[data-shatter]');
-    if(el){ shatter(el); }
-  });
-
-  /* ---------- live strip chart + hero gauge (calmed, pauses off-screen) ---------- */
-  function initStrip(){
-    var teal=document.getElementById('hs-teal'), tealG=document.getElementById('hs-teal-glow'),
-        red=document.getElementById('hs-red'), redG=document.getElementById('hs-red-glow'),
-        marks=document.getElementById('hs-marks'), curDot=document.getElementById('hs-cur'),
-        idxEl=document.getElementById('hs-idx'),
-        hNeedle=document.getElementById('hero-needle'), hVal=document.getElementById('hero-pval'),
-        hStat=document.getElementById('hero-status'), hWrap=document.getElementById('hero-readout');
-    if(!teal||!hNeedle) return;
-
-    var PX0=30, PX1=890, TOP=24, BOT=196, dx=8;
-    var maxPts=Math.floor((PX1-PX0)/dx)+1;
-    function yFor(p){ return BOT - p*(BOT-TOP); }
-
-    var buf=[], k=0, spLen=0, spI=0, spDepth=0, nextSpike=20;
-    function nextSample(){
-      k++;
-      var base=0.882 + 0.018*Math.sin(k*0.10) + (Math.random()-0.5)*0.022;
-      if(spLen<=0 && k>=nextSpike){
-        spLen=4+Math.floor(Math.random()*3); spI=0;
-        spDepth=0.58+Math.random()*0.22;
-        nextSpike=k + 44 + Math.floor(Math.random()*54);
-      }
-      var p=base;
-      if(spLen>0){
-        spI++;
-        p=base - Math.sin((spI/(spLen+1))*Math.PI)*spDepth;
-        if(spI>=spLen) spLen=0;
-      }
-      return Math.max(0.03, Math.min(0.985, p));
-    }
-    function setHero(p){
-      hNeedle.style.transform='rotate('+((p-0.5)*180).toFixed(1)+'deg)';
-      hVal.textContent=p.toFixed(2);
-      var bad=p<0.45;
-      hWrap.classList.toggle('alert', bad);
-      hStat.textContent=bad?'ERROR FLAGGED':'TRACKING';
-    }
-    function draw(){
-      var pts='', dRed='', run=false, i, x, y, p;
-      for(i=0;i<buf.length;i++){
-        p=buf[i]; x=PX0+i*dx; y=yFor(p);
-        pts+=x.toFixed(1)+','+y.toFixed(1)+' ';
-        if(p<0.45){ dRed+=(run?' L':' M')+x.toFixed(1)+','+y.toFixed(1); run=true; } else run=false;
-      }
-      pts=pts.trim();
-      teal.setAttribute('points', pts); tealG.setAttribute('points', pts);
-      red.setAttribute('d', dRed); redG.setAttribute('d', dRed);
-      var mk='';
-      i=0;
-      while(i<buf.length){
-        if(buf[i]<0.45){
-          var minv=buf[i], mi=i;
-          while(i<buf.length && buf[i]<0.45){ if(buf[i]<minv){minv=buf[i]; mi=i;} i++; }
-          if(minv<0.30){
-            var mx=PX0+mi*dx, my=yFor(minv);
-            mk+='<circle cx="'+mx.toFixed(1)+'" cy="'+my.toFixed(1)+'" r="3.5" fill="#ff5b5b"/>'
-              + '<line x1="'+mx.toFixed(1)+'" y1="'+my.toFixed(1)+'" x2="'+mx.toFixed(1)+'" y2="'+(my-14).toFixed(1)+'" stroke="#ff5b5b" stroke-width="1"/>'
-              + '<text x="'+mx.toFixed(1)+'" y="'+(my-18).toFixed(1)+'" text-anchor="middle" font-family="\'JetBrains Mono\',monospace" font-size="10" fill="#ff5b5b">FLAG</text>';
-          }
-        } else i++;
-      }
-      marks.innerHTML=mk;
-      var lp=buf[buf.length-1], lx=PX0+(buf.length-1)*dx, ly=yFor(lp);
-      curDot.setAttribute('cx', lx.toFixed(1)); curDot.setAttribute('cy', ly.toFixed(1));
-      curDot.setAttribute('fill', lp<0.45 ? '#ff5b5b' : '#2fe3cb');
-      setHero(lp);
-      if(idxEl) idxEl.textContent=String(100000+k).slice(1);
-    }
-
-    for(var q=0;q<maxPts;q++) buf.push(nextSample());
-    draw();
-
-    if(reduce) return;
-
-    var running=false, visible=true, last=0, acc=0, step=120;
-    function loop(ts){
-      if(!visible){ running=false; return; }
-      if(!last) last=ts;
-      acc+=ts-last; last=ts;
-      while(acc>=step){ buf.push(nextSample()); if(buf.length>maxPts) buf.shift(); acc-=step; }
-      draw();
-      requestAnimationFrame(loop);
-    }
-    function start(){ if(!running){ running=true; last=0; requestAnimationFrame(loop); } }
-    if('IntersectionObserver' in window){
-      var io=new IntersectionObserver(function(ents){
-        visible=ents[0].isIntersecting;
-        if(visible) start();
-      }, {threshold:0.05});
-      io.observe(hWrap);
-    } else { start(); }
-  }
 
   /* ---------- interactive demo gauge ---------- */
   function initDemo(box){
@@ -864,7 +611,7 @@ p_correct = judge.<span class="fn">score</span>(question=question, answer=answer
       verdict.className='pd-verdict '+(good?'good':'bad'); verdict.textContent=vt;
       needle.style.transform='rotate('+((p-0.5)*180).toFixed(1)+'deg)';
       bar.style.width=(p*100).toFixed(1)+'%';
-      qa.innerHTML='<b>Q</b> '+q+' &nbsp; <b>A</b> <span data-shatter title="click to shatter">'+a+'</span>';
+      qa.innerHTML='<b>Q</b> '+q+' &nbsp; <b>A</b> <span>'+a+'</span>';
       why.innerHTML=wt?('<b>Why:</b> '+wt):'';
       var from=parseFloat(val.textContent)||0, t0=null;
       cancelAnimationFrame(raf);
@@ -883,10 +630,6 @@ p_correct = judge.<span class="fn">score</span>(question=question, answer=answer
   }
 
   function init(){
-    document.querySelectorAll('[data-shatter]').forEach(function(el){
-      if(!el.getAttribute('title')) el.setAttribute('title','click to shatter');
-    });
-    initStrip();
     document.querySelectorAll('.pino-demo').forEach(initDemo);
   }
   if(document.readyState!=='loading') init(); else document.addEventListener('DOMContentLoaded', init);
