@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
 <meta name="robots" content="noindex, nofollow">
-<title>Pinocchio · Uncertainty Instrument</title>
-<meta name="description" content="Pinocchio: a plug-in uncertainty estimator for black-box LLMs and VLMs. Score any model's response with P(correct) in two lines of code.">
+<title>Pinocchio</title>
+<meta name="description" content="Pinocchio: an external calibrator that reads only the text of a black-box model's response and returns P(correct) in a single forward pass. Accepted to COLM 2026.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -15,140 +16,209 @@
         onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
 <style>
 :root{
-  --bg:#0c0e11; --bg2:#101318; --panel:#14181e; --panel2:#1a1f26;
-  --line:#232a33; --line2:#2f3843;
-  --ink:#dfe6ee; --dim:#8592a0; --faint:#5c6772;
-  --truth:#39d3bf; --lie:#ff5b5b; --amber:#eab84a;
-  --disp:"Space Grotesk", system-ui, sans-serif;
-  --mono:"JetBrains Mono", ui-monospace, monospace;
-  --maxw:1080px;
+  --bg:#0a0c0f; --bg2:#0e1116; --panel:#12161c; --panel2:#171d24;
+  --line:#1d232b; --line2:#2b333d;
+  --ink:#e4ebf2; --dim:#8b98a5; --faint:#7b8592;
+  --truth:#2fe3cb; --truth-d:#1f9d8c; --lie:#ff5b5b; --lie-d:#b13a3a; --amber:#eab84a;
+  --disp:"Space Grotesk", system-ui, -apple-system, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --maxw:1120px;
 }
 *{ box-sizing:border-box; }
 html{ scroll-behavior:smooth; }
 body{
   margin:0; background:var(--bg); color:var(--ink);
-  font-family:var(--mono); font-size:15px; line-height:1.7;
-  -webkit-font-smoothing:antialiased;
+  font-family:var(--disp); font-size:16px; line-height:1.65;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
   background-image:
     linear-gradient(var(--line) 1px, transparent 1px),
     linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size:44px 44px; background-position:center top;
+  background-size:48px 48px; background-position:center -1px;
 }
-/* dim the grid + add a soft vignette + scanlines */
+/* soft vignette, whisper of scanlines (kept low to reduce visual noise) */
 body::before{ content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
   background:
-    radial-gradient(120% 90% at 50% 0%, rgba(20,24,30,.35), rgba(10,12,15,.92) 70%),
-    repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px);
+    radial-gradient(128% 92% at 50% -6%, rgba(24,30,38,.30), rgba(9,11,14,.95) 68%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.007) 0 1px, transparent 1px 4px);
 }
 .wrap{ position:relative; z-index:1; max-width:var(--maxw); margin:0 auto; padding:0 26px; }
 a{ color:var(--truth); text-decoration:none; }
+::selection{ background:rgba(47,227,203,.24); color:#fff; }
+:focus-visible{ outline:2px solid var(--truth); outline-offset:3px; }
 
-/* ---------- top status bar ---------- */
-.status{ position:sticky; top:0; z-index:20; background:rgba(12,14,17,.86); backdrop-filter:blur(6px); border-bottom:1px solid var(--line2); }
-.status .wrap{ display:flex; align-items:center; justify-content:space-between; height:46px; }
-.status .id{ font-size:12px; letter-spacing:.18em; color:var(--dim); }
+/* bezel corner marks, reserved for the two anchor instruments */
+.bezel{ position:relative; }
+.bezel::before,.bezel::after{ content:""; position:absolute; width:11px; height:11px; pointer-events:none; z-index:2; }
+.bezel::before{ top:-1px; left:-1px; border-top:2px solid var(--truth); border-left:2px solid var(--truth); }
+.bezel::after{ bottom:-1px; right:-1px; border-bottom:2px solid var(--truth); border-right:2px solid var(--truth); }
+
+/* ---------- status bar ---------- */
+.status{ position:sticky; top:0; z-index:30; background:rgba(10,12,15,.88); backdrop-filter:blur(7px); border-bottom:1px solid var(--line2); }
+.status .wrap{ display:flex; align-items:center; justify-content:space-between; height:48px; }
+.status .id{ font-family:var(--mono); font-size:12px; letter-spacing:.2em; color:var(--dim); }
 .status .id b{ color:var(--ink); }
-.status .id .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--truth); box-shadow:0 0 8px var(--truth); margin-right:9px; vertical-align:middle; animation:blink 2.4s infinite; }
+.status .id .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--truth); box-shadow:0 0 9px var(--truth); margin-right:10px; vertical-align:middle; animation:blink 3.2s infinite; }
 @keyframes blink{ 0%,92%,100%{opacity:1} 96%{opacity:.25} }
-.status nav a{ color:var(--dim); font-size:12px; letter-spacing:.12em; text-transform:uppercase; margin-left:20px; }
-.status nav a:hover{ color:var(--ink); }
-@media(max-width:720px){ .status nav{ display:none; } }
+.status nav a{ font-family:var(--mono); color:var(--dim); font-size:11.5px; letter-spacing:.13em; text-transform:uppercase; margin-left:22px; }
+.status nav a:hover{ color:var(--truth); }
+@media(max-width:860px){ .status nav{ display:none; } }
+@media(max-width:620px){ .status .id .sub-id{ display:none; } }
 
-.ey{ font-size:12px; letter-spacing:.24em; text-transform:uppercase; color:var(--faint); }
-.ey b{ color:var(--truth); }
+.ey{ font-family:var(--mono); font-size:12px; letter-spacing:.26em; text-transform:uppercase; color:var(--faint); margin:0; }
+.ey b{ color:var(--truth); font-weight:500; }
 
 /* ---------- hero ---------- */
-.hero{ padding:64px 0 28px; }
-.hero h1{ font-family:var(--disp); font-weight:700; font-size:clamp(56px,12vw,124px); line-height:.92; letter-spacing:-.03em; margin:14px 0 8px; color:var(--ink); }
-.hero h1 .n{ color:var(--lie); }
-.hero .sub{ font-family:var(--disp); font-weight:400; font-size:clamp(18px,2.4vw,24px); color:var(--dim); max-width:60ch; margin:0 0 10px; }
+.hero{ padding:60px 0 22px; }
+.hero h1{ font-family:var(--disp); font-weight:700; font-size:clamp(50px,12vw,132px); line-height:.9; letter-spacing:-.035em; margin:16px 0 14px; color:var(--ink); }
+.hero h1 .n{ color:var(--lie); text-shadow:0 0 34px rgba(255,91,91,.4); }
+.hero .sub{ font-family:var(--disp); font-weight:400; font-size:clamp(17px,2.2vw,22px); color:var(--dim); max-width:66ch; margin:0 0 16px; line-height:1.5; }
 .hero .sub b{ color:var(--truth); font-weight:500; }
-.meta{ font-size:12.5px; color:var(--faint); margin:18px 0 4px; letter-spacing:.04em; }
-.meta a{ color:var(--dim); border-bottom:1px solid var(--line2); }
-.meta a:hover{ color:var(--ink); }
-.venue{ font-size:12.5px; color:var(--amber); letter-spacing:.08em; }
+.hero .sub .lie{ color:var(--lie); font-weight:500; }
+.authors{ font-family:var(--mono); font-size:12.5px; color:var(--dim); margin:20px 0 3px; letter-spacing:.02em; }
+.authors b{ color:var(--ink); font-weight:500; }
+.affil{ font-family:var(--mono); font-size:12px; color:var(--faint); margin:0 0 2px; }
+.affil a{ color:var(--dim); border-bottom:1px solid var(--line2); }
+.affil a:hover{ color:var(--truth); }
+.venue{ font-family:var(--mono); font-size:12.5px; color:var(--amber); letter-spacing:.06em; margin:8px 0 0; }
+.venue::before{ content:"\25C9"; margin-right:8px; }
 
-.readout{ margin:26px 0 6px; border:1px solid var(--line2); background:linear-gradient(var(--panel),var(--bg2)); }
-.readout .top{ display:flex; justify-content:space-between; align-items:center; padding:9px 16px; border-bottom:1px solid var(--line); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--faint); }
-.readout .top .live{ color:var(--truth); }
-.readout .body{ display:grid; grid-template-columns:1fr 200px; gap:0; }
-@media(max-width:720px){ .readout .body{ grid-template-columns:1fr; } .readout .digits{ border-left:0!important; border-top:1px solid var(--line); } }
-.readout svg{ width:100%; height:auto; display:block; }
-.readout .digits{ border-left:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:18px; }
-.readout .digits .lab{ font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--faint); }
-.readout .digits .val{ font-family:var(--disp); font-weight:700; font-size:52px; color:var(--truth); line-height:1; text-shadow:0 0 22px rgba(57,211,191,.35); }
-.readout .digits .bar{ width:100%; height:6px; background:var(--line); margin-top:12px; }
-.readout .digits .bar i{ display:block; height:100%; width:88%; background:var(--truth); box-shadow:0 0 10px var(--truth); }
+/* readout rack */
+.readout{ margin:30px 0 4px; border:1px solid var(--line2); background:linear-gradient(180deg,var(--panel),var(--bg2)); }
+.readout .top{ display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--faint); }
+.readout .top .rec{ color:var(--lie); }
+.readout .top .rec .b{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--lie); box-shadow:0 0 8px var(--lie); margin-right:7px; vertical-align:middle; animation:blink 2.2s infinite; }
+.readout .body{ display:grid; grid-template-columns:1fr 250px; }
+@media(max-width:760px){ .readout .body{ grid-template-columns:1fr; } .readout .digits{ border-left:0!important; border-top:1px solid var(--line); } }
+.readout .strip{ position:relative; padding:6px 6px 2px; }
+.readout .strip svg{ width:100%; height:auto; display:block; }
+.readout .strip .cap{ font-family:var(--mono); font-size:10.5px; color:var(--faint); letter-spacing:.06em; padding:2px 10px 8px; }
+.readout .digits{ border-left:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:18px 14px; gap:6px; }
+.readout .digits svg{ width:200px; max-width:100%; height:auto; display:block; }
+.readout .digits .val{ font-family:var(--disp); font-weight:700; font-size:54px; color:var(--truth); line-height:1; letter-spacing:-.02em; text-shadow:0 0 24px rgba(47,227,203,.4); }
+.readout .digits .lab{ font-family:var(--mono); font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--faint); }
+.readout .digits .stat{ font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--truth); }
+.readout.alert{ border-color:var(--lie-d); box-shadow:0 0 0 1px rgba(255,91,91,.25), 0 0 34px -14px var(--lie); }
+.readout.alert .digits .val{ color:var(--lie); text-shadow:0 0 24px rgba(255,91,91,.45); }
+.readout.alert .digits .stat{ color:var(--lie); }
+#hero-needle{ transition:transform .16s linear; transform-origin:100px 100px; }
 
 /* buttons */
-.btns{ display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
-.btn{ font-size:12.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); border:1px solid var(--line2); padding:11px 16px; background:var(--panel); transition:.15s; display:inline-flex; gap:9px; align-items:center; }
-.btn:hover{ border-color:var(--truth); color:var(--truth); box-shadow:0 0 16px -4px var(--truth); }
+.btns{ display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; }
+.btn{ font-family:var(--mono); font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink); border:1px solid var(--line2); padding:11px 16px; background:var(--panel); transition:.15s; display:inline-flex; gap:8px; align-items:center; }
+.btn:hover{ border-color:var(--truth); color:var(--truth); box-shadow:0 0 18px -5px var(--truth); }
 .btn .k{ color:var(--faint); }
 .btn.off{ color:var(--faint); border-color:var(--line); cursor:default; }
 .btn.off:hover{ box-shadow:none; color:var(--faint); border-color:var(--line); }
 
-/* ---------- sections ---------- */
-section{ padding:56px 0; position:relative; z-index:1; }
-.sechead{ display:flex; align-items:baseline; gap:16px; margin-bottom:26px; border-bottom:1px solid var(--line2); padding-bottom:14px; }
-.sechead h2{ font-family:var(--disp); font-weight:600; font-size:clamp(24px,3.4vw,34px); margin:0; color:var(--ink); letter-spacing:-.01em; }
-.sechead .tag{ font-size:12px; color:var(--faint); letter-spacing:.2em; }
-.prose{ color:var(--dim); max-width:70ch; }
-.prose p{ margin:0 0 16px; } .prose b, .prose strong{ color:var(--ink); font-weight:500; }
-.prose em{ color:var(--truth); font-style:normal; }
-.cols2{ display:grid; grid-template-columns:1fr 1fr; gap:36px; } @media(max-width:760px){ .cols2{ grid-template-columns:1fr; } }
+/* KPI band */
+.kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:26px 0 4px; }
+@media(max-width:760px){ .kpis{ grid-template-columns:1fr 1fr; } }
+.kpi{ border:1px solid var(--line2); background:var(--panel); padding:16px 16px 15px; }
+.kpi .n{ font-family:var(--disp); font-weight:700; font-size:34px; line-height:1; color:var(--truth); letter-spacing:-.02em; }
+.kpi .n .s{ font-size:16px; color:var(--faint); font-weight:500; }
+.kpi .l{ font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:.02em; margin-top:9px; line-height:1.45; }
+.kpi .l b{ color:var(--ink); font-weight:500; }
 
-/* readings (specimens) */
-.reads{ display:grid; grid-template-columns:1fr 1fr; gap:20px; } @media(max-width:760px){ .reads{ grid-template-columns:1fr; } }
-.read{ border:1px solid var(--line2); background:var(--panel); }
-.read .hd{ display:flex; justify-content:space-between; padding:11px 15px; border-bottom:1px solid var(--line); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); }
-.read.ok .hd .v{ color:var(--truth); } .read.no .hd .v{ color:var(--lie); }
-.read .bd{ padding:16px 15px; }
-.read .qa{ font-size:13.5px; color:var(--dim); line-height:1.55; margin:0 0 14px; }
-.read .qa b{ color:var(--ink); }
-.read .meter{ display:flex; align-items:center; gap:12px; }
-.read .meter .num{ font-family:var(--disp); font-weight:700; font-size:30px; }
-.read.ok .meter .num{ color:var(--truth); } .read.no .meter .num{ color:var(--lie); }
-.read .meter .track{ flex:1; height:8px; background:var(--line); }
-.read .meter .track i{ display:block; height:100%; }
-.read.ok .meter .track i{ background:var(--truth); box-shadow:0 0 8px var(--truth); }
-.read.no .meter .track i{ background:var(--lie); box-shadow:0 0 8px var(--lie); }
+/* ---------- sections ---------- */
+section{ padding:54px 0; position:relative; z-index:1; }
+.sechead{ display:flex; align-items:baseline; gap:16px; margin-bottom:26px; border-bottom:1px solid var(--line2); padding-bottom:14px; }
+.sechead .tag{ font-family:var(--mono); font-size:12px; color:var(--truth); letter-spacing:.18em; }
+.sechead h2{ font-family:var(--disp); font-weight:600; font-size:clamp(24px,3.3vw,34px); margin:0; color:var(--ink); letter-spacing:-.015em; }
+.prose{ color:var(--dim); max-width:70ch; }
+.prose p{ margin:0 0 15px; } .prose b, .prose strong{ color:var(--ink); font-weight:500; }
+.prose em{ color:var(--truth); font-style:normal; }
+.prose .no{ color:var(--lie); font-style:normal; }
+.cols2{ display:grid; grid-template-columns:1fr 1fr; gap:38px; } @media(max-width:800px){ .cols2{ grid-template-columns:1fr; gap:24px; } }
+code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); background:var(--panel2); padding:1px 6px; border:1px solid var(--line); }
+
+/* sidebar note */
+.sidenote{ font-family:var(--mono); font-size:12.5px; line-height:1.7; color:var(--dim); border:1px solid var(--line2); border-left:2px solid var(--amber); background:var(--panel); padding:14px 16px; margin:24px 0 0; max-width:78ch; }
+.sidenote b{ color:var(--ink); } .sidenote .t{ color:var(--truth); } .sidenote .r{ color:var(--lie); }
+
+/* source pool chips */
+.pool{ border:1px solid var(--line2); background:var(--panel); padding:18px 18px 16px; margin-top:26px; }
+.pool .grp{ margin-bottom:16px; } .pool .grp:last-child{ margin-bottom:0; }
+.pool h4{ font-family:var(--disp); font-weight:600; font-size:14px; color:var(--ink); margin:0 0 10px; display:flex; align-items:baseline; gap:9px; }
+.pool h4 .t{ font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); font-weight:400; }
+.chipset{ display:flex; flex-wrap:wrap; gap:8px; }
+.mchip{ font-family:var(--mono); font-size:12px; padding:7px 12px; border:1px solid var(--line2); background:var(--panel2); color:var(--ink); }
+.mchip.f{ border-color:#2f5a54; color:#bff0e8; }
+.mchip.d{ border-color:#5a4a2f; color:#f0e2bf; }
+.pool .arrow{ font-family:var(--mono); font-size:11px; color:var(--faint); letter-spacing:.04em; margin-top:14px; line-height:1.6; }
+.pool .arrow b{ color:var(--truth); }
+
+/* figure plates */
+.plate{ border:1px solid var(--line2); background:var(--panel); }
+.plate .phd{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 15px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); }
+.plate .phd .f{ color:var(--truth); }
+.plate svg{ width:100%; height:auto; display:block; }
+.plate .cap{ display:flex; gap:12px; padding:12px 15px; border-top:1px solid var(--line); font-family:var(--mono); font-size:12px; color:var(--dim); line-height:1.5; }
+
+/* method */
+.prompt{ border:1px solid var(--line2); border-left:3px solid var(--lie); background:var(--panel); padding:16px 18px; font-family:var(--mono); font-size:13.5px; color:var(--ink); white-space:pre-wrap; line-height:1.85; }
+.eq{ color:var(--ink); margin:22px 0; text-align:center; overflow-x:auto; }
+.note{ color:var(--faint); font-family:var(--mono); font-size:12px; margin-top:12px; line-height:1.55; } .note code{ color:var(--truth); }
 
 /* code */
-.code{ border:1px solid var(--line2); background:#0a0c0f; }
-.code .bar{ display:flex; justify-content:space-between; padding:9px 15px; border-bottom:1px solid var(--line); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); }
-.code pre{ margin:0; padding:18px 18px; overflow-x:auto; }
-.code code{ font-family:var(--mono); font-size:13.5px; line-height:1.8; color:#c7d0da; }
-.kw{color:#7fb0ff}.str{color:#39d3bf}.com{color:#5c6772;font-style:italic}.num{color:#eab84a}
-.note{ color:var(--faint); font-size:13px; margin-top:12px; } .note code{ color:var(--truth); background:var(--panel); padding:1px 6px; }
+.code{ border:1px solid var(--line2); background:#080a0d; }
+.code .bar{ display:flex; justify-content:space-between; padding:9px 15px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); }
+.code pre{ margin:0; padding:18px; overflow-x:auto; }
+.code code{ font-family:var(--mono); font-size:13.5px; line-height:1.85; color:#c7d0da; }
+.kw{color:#7fb0ff}.str{color:#2fe3cb}.com{color:#7b8592;font-style:italic}.num{color:#eab84a}.fn{color:#e4ebf2}
 
-/* modules (checkpoints) */
-.mods{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; } @media(max-width:760px){ .mods{ grid-template-columns:1fr; } }
-.mod{ border:1px solid var(--line2); background:var(--panel); padding:20px 18px; }
-.mod .u{ font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--lie); }
-.mod h3{ font-family:var(--disp); font-size:16px; color:var(--ink); margin:8px 0 10px; }
-.mod p{ color:var(--dim); font-size:13.5px; line-height:1.55; margin:0; } .mod b{ color:var(--ink); }
+/* live demo */
+.pino-demo{ border:1px solid var(--line2); background:var(--panel); padding:24px; }
+.pino-demo .pd-chips{ display:flex; flex-wrap:wrap; gap:9px; margin-bottom:24px; }
+.pino-demo .pd-chip{ font-family:var(--mono); font-size:12.5px; cursor:pointer; border:1px solid var(--line2); background:transparent; color:var(--dim); padding:10px 14px; transition:.15s; display:inline-flex; align-items:center; gap:8px; min-height:38px; }
+.pino-demo .pd-chip .d{ width:7px; height:7px; border-radius:50%; background:var(--faint); flex:none; }
+.pino-demo .pd-chip.correct .d{ background:var(--truth); }
+.pino-demo .pd-chip.mid .d{ background:var(--amber); }
+.pino-demo .pd-chip.wrong .d{ background:var(--lie); }
+.pino-demo .pd-chip:hover{ border-color:var(--dim); color:var(--ink); }
+.pino-demo .pd-chip.on{ border-color:var(--ink); color:var(--ink); background:rgba(255,255,255,.04); }
+.pino-demo .pd-chip.correct.on{ border-color:var(--truth); box-shadow:0 0 16px -6px var(--truth); }
+.pino-demo .pd-chip.mid.on{ border-color:var(--amber); box-shadow:0 0 16px -6px var(--amber); }
+.pino-demo .pd-chip.wrong.on{ border-color:var(--lie); box-shadow:0 0 16px -6px var(--lie); }
+.pino-demo .pd-stage{ display:flex; gap:34px; align-items:center; flex-wrap:wrap; }
+.pino-demo .pd-gauge{ width:230px; max-width:100%; height:auto; flex:none; }
+.pino-demo .pd-needle{ transform-origin:100px 100px; transition:transform 1.05s cubic-bezier(.2,.85,.2,1); }
+.pino-demo .pd-readout{ flex:1; min-width:220px; }
+.pino-demo .pd-verdict{ font-family:var(--disp); font-weight:700; font-size:28px; color:var(--dim); letter-spacing:-.01em; transition:opacity .2s; }
+.pino-demo .pd-verdict.good{ color:var(--truth); } .pino-demo .pd-verdict.bad{ color:var(--lie); }
+.pino-demo .pd-p{ font-family:var(--mono); font-size:11.5px; opacity:.75; margin-top:8px; text-transform:uppercase; letter-spacing:.14em; }
+.pino-demo .pd-p .pd-val{ font-weight:700; opacity:1; color:var(--ink); }
+.pino-demo .pd-bar{ height:8px; background:var(--line); margin-top:14px; overflow:hidden; }
+.pino-demo .pd-bar i{ display:block; height:100%; width:0; background:var(--truth); box-shadow:0 0 8px var(--truth); transition:width 1.05s cubic-bezier(.2,.85,.2,1); }
+.pino-demo.is-bad .pd-bar i{ background:var(--lie); box-shadow:0 0 8px var(--lie); }
+.pino-demo .pd-qa{ margin-top:22px; font-size:14px; line-height:1.55; min-height:2.6em; color:var(--dim); }
+.pino-demo .pd-qa b{ font-family:var(--mono); font-size:12px; color:var(--ink); }
+.pino-demo .pd-why{ margin-top:11px; font-family:var(--mono); font-size:12.5px; color:var(--faint); line-height:1.55; min-height:1.5em; }
+.pino-demo .pd-why b{ color:var(--dim); font-weight:500; }
+.pino-demo .pd-note{ margin-top:16px; font-family:var(--mono); font-size:11.5px; color:var(--faint); }
+.pino-demo .pd-note a{ color:var(--dim); border-bottom:1px solid var(--line2); }
+.pino-demo.analyzing .pd-verdict{ opacity:.3; }
 
-.prompt{ border:1px solid var(--line2); border-left:3px solid var(--lie); background:var(--panel); padding:16px 18px; font-family:var(--mono); font-size:13.5px; color:var(--ink); white-space:pre-wrap; line-height:1.8; }
-.eq{ color:var(--ink); margin:20px 0; text-align:center; }
+.foot{ border-top:1px solid var(--line2); padding:38px 0 64px; }
+.foot p{ color:var(--faint); font-family:var(--mono); font-size:12px; letter-spacing:.02em; max-width:80ch; line-height:1.65; }
 
-/* trace plates */
-.plate{ border:1px solid var(--line2); background:var(--panel); }
-.plate .cap{ display:flex; gap:12px; padding:12px 15px; border-top:1px solid var(--line); font-size:12.5px; color:var(--dim); }
-.plate .cap .f{ color:var(--lie); letter-spacing:.14em; white-space:nowrap; text-transform:uppercase; font-size:11px; padding-top:1px; }
-.plate svg{ width:100%; height:auto; display:block; }
-
-.foot{ border-top:1px solid var(--line2); padding:36px 0 60px; }
-.foot p{ color:var(--faint); font-size:12px; letter-spacing:.03em; max-width:70ch; }
+/* shatter */
+.sh-flyer{ position:fixed; margin:0; padding:0; pointer-events:none; z-index:99999; white-space:pre; }
+[data-shatter]{ cursor:pointer; }
+[data-shatter]:hover{ opacity:.78; }
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  #hero-needle,.pino-demo .pd-needle,.pino-demo .pd-bar i{ transition:none; }
+  .status .id .dot,.readout .top .rec .b{ animation:none; }
+}
 </style>
 </head>
 <body>
 
 <div class="status">
   <div class="wrap">
-    <div class="id"><span class="dot"></span><b>PINOCCHIO</b> // UNCERTAINTY INSTRUMENT</div>
+    <div class="id"><span class="dot"></span><b>PINOCCHIO</b><span class="sub-id"> // BLACK-BOX UNCERTAINTY INSTRUMENT</span></div>
     <nav>
-      <a href="#brief">Brief</a><a href="#readings">Readings</a><a href="#method">Method</a><a href="#traces">Traces</a><a href="#cite">Cite</a>
+      <a href="#access">Access</a><a href="#calibrator">Calibrator</a><a href="#transfer">Transfer</a><a href="#method">Method</a><a href="#demo">Demo</a><a href="#cite">Cite</a>
     </nav>
   </div>
 </div>
@@ -156,122 +226,338 @@ section{ padding:56px 0; position:relative; z-index:1; }
 <!-- HERO -->
 <section class="hero">
   <div class="wrap">
-    <p class="ey">Black-box uncertainty · <b>P(correct)</b> for any model</p>
+    <p class="ey">A lie detector for language models &nbsp;/&nbsp; <b>P(correct)</b> for any black-box API</p>
     <h1 data-shatter>Pin<span class="n">o</span>cchio</h1>
-    <p class="sub">A lie detector for language models. It reads only the <b>text</b> of a response and returns the probability the answer is correct, with no log-probs, no samples, no weights. One judge scores even the newest black-box systems it never saw: <b>Claude Opus 5, GPT-5.6, Kimi 3, Fable 5.</b></p>
-    <p class="meta">Kevin David Hayes · <a href="https://khayes95.github.io/">University of Maryland, College Park</a></p>
-    <p class="venue">◦ Accepted to COLM 2026</p>
+    <p class="sub">One external calibrator reads only the <b>text</b> of a response and returns the probability it is correct, in a <b>single forward pass</b>. No log-probabilities, no sampling, no weights, no fine-tuning of the target. It scores even the newest closed systems it never saw, <b>Claude Fable 5</b>, <b>Claude Opus 5</b>, <b>GPT-5.6</b>, and <b>Kimi 3</b>, and flags the <span class="lie">confident fabrications</span>.</p>
 
-    <!-- polygraph readout -->
-    <div class="readout">
-      <div class="top"><span>Strip chart · P(correct) trace</span><span class="live">● LIVE</span></div>
+    <p class="authors"><b>Kevin David Hayes</b>, Arka Pal, Haosong Zhang, Tom Goldstein, Micah Goldblum</p>
+    <p class="affil"><a href="https://khayes95.github.io/">University of Maryland, College Park</a></p>
+    <p class="venue">Accepted to COLM 2026</p>
+
+    <!-- polygraph readout rack -->
+    <div class="readout bezel" id="hero-readout">
+      <div class="top">
+        <span>CH-1 &nbsp;//&nbsp; P(correct) monitor</span>
+        <span class="rec"><span class="b"></span>REC &nbsp; <span id="hs-idx" style="color:var(--faint)">00000</span></span>
+      </div>
       <div class="body">
-        <svg viewBox="0 0 900 150" role="img" aria-label="A polygraph-style trace of P(correct) with spikes where the model likely lied">
-          <!-- grid -->
-          <g stroke="#1c222a" stroke-width="1">
-            <line x1="0" y1="30" x2="900" y2="30"/><line x1="0" y1="70" x2="900" y2="70"/><line x1="0" y1="110" x2="900" y2="110"/>
-          </g>
-          <line x1="0" y1="70" x2="900" y2="70" stroke="#2f3843" stroke-dasharray="3 5"/>
-          <!-- trace -->
-          <polyline fill="none" stroke="#39d3bf" stroke-width="2" stroke-linejoin="round"
-            points="0,66 30,64 60,69 90,65 120,68 150,66 165,22 180,66 210,70 240,64 270,68 300,66 330,63 345,116 360,67 390,68 420,64 450,70 480,66 510,68 525,18 540,66 570,69 600,64 630,70 660,66 690,68 720,65 750,63 780,69 810,66 840,71 870,66 900,66"/>
-          <!-- lie markers -->
-          <g>
-            <circle cx="165" cy="22" r="4" fill="#ff5b5b"/><text x="165" y="14" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10" fill="#ff5b5b">lie</text>
-            <circle cx="525" cy="18" r="4" fill="#ff5b5b"/><text x="525" y="10" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10" fill="#ff5b5b">lie</text>
-          </g>
-          <g font-family="'JetBrains Mono',monospace" font-size="10" fill="#5c6772">
-            <text x="6" y="27">1.0</text><text x="6" y="84">0.5</text><text x="6" y="124">0.0</text>
-          </g>
-        </svg>
+        <div class="strip">
+          <svg viewBox="0 0 900 220" role="img" aria-label="A polygraph-style trace of P(correct). A calm truth-teal line stays high, with occasional lie-red dips where the calibrator flags a likely error.">
+            <g stroke="#1a212a" stroke-width="1">
+              <line x1="30" y1="24" x2="890" y2="24"/>
+              <line x1="30" y1="110" x2="890" y2="110"/>
+              <line x1="30" y1="196" x2="890" y2="196"/>
+            </g>
+            <line x1="30" y1="110" x2="890" y2="110" stroke="#2b333d" stroke-dasharray="3 6"/>
+            <text x="884" y="106" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">decision 0.5</text>
+            <polyline id="hs-teal-glow" fill="none" stroke="#2fe3cb" stroke-opacity="0.18" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" points=""/>
+            <path id="hs-red-glow" fill="none" stroke="#ff5b5b" stroke-opacity="0.22" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" d=""/>
+            <polyline id="hs-teal" fill="none" stroke="#2fe3cb" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points=""/>
+            <path id="hs-red" fill="none" stroke="#ff5b5b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" d=""/>
+            <g id="hs-marks"></g>
+            <circle id="hs-cur" cx="890" cy="86" r="3.6" fill="#2fe3cb"/>
+            <g font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#7b8592">
+              <text x="26" y="27" text-anchor="end">1.0</text>
+              <text x="26" y="114" text-anchor="end">0.5</text>
+              <text x="26" y="199" text-anchor="end">0.0</text>
+            </g>
+          </svg>
+          <div class="cap">Illustrative trace, synthetic data. Truth-teal holds high, lie-red dips mark flagged answers.</div>
+        </div>
         <div class="digits">
-          <div class="lab">current</div>
-          <div class="val">0.88</div>
-          <div class="bar"><i></i></div>
+          <svg viewBox="0 0 200 132" aria-hidden="true">
+            <path d="M22 100 A78 78 0 0 1 100 22" fill="none" stroke="#ff5b5b" stroke-width="8" opacity="0.55"/>
+            <path d="M100 22 A78 78 0 0 1 178 100" fill="none" stroke="#2fe3cb" stroke-width="8" opacity="0.8"/>
+            <g stroke="#3a434e" stroke-width="1.4">
+              <line x1="20" y1="100" x2="29" y2="100"/>
+              <line x1="23.91" y1="75.28" x2="32.47" y2="78.06"/>
+              <line x1="35.28" y1="52.98" x2="42.56" y2="58.27"/>
+              <line x1="52.98" y1="35.28" x2="58.27" y2="42.56"/>
+              <line x1="75.28" y1="23.91" x2="78.06" y2="32.47"/>
+              <line x1="124.72" y1="23.91" x2="121.94" y2="32.47"/>
+              <line x1="147.02" y1="35.28" x2="141.73" y2="42.56"/>
+              <line x1="164.72" y1="52.98" x2="157.44" y2="58.27"/>
+              <line x1="176.09" y1="75.28" x2="167.53" y2="78.06"/>
+            </g>
+            <g stroke="#59636e" stroke-width="2">
+              <line x1="20" y1="100" x2="31" y2="100"/>
+              <line x1="100" y1="20" x2="100" y2="31"/>
+              <line x1="180" y1="100" x2="169" y2="100"/>
+            </g>
+            <text x="18" y="114" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">0</text>
+            <text x="100" y="15" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">0.5</text>
+            <text x="184" y="114" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">1</text>
+            <text x="44" y="94" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b13a3a" letter-spacing="1">LIE</text>
+            <text x="156" y="94" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#1f9d8c" letter-spacing="1">TRUE</text>
+            <line id="hero-needle" x1="100" y1="100" x2="100" y2="36" stroke="#e4ebf2" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="100" cy="100" r="6" fill="#e4ebf2"/>
+          </svg>
+          <div class="lab">P(correct)</div>
+          <div class="val" id="hero-pval">0.88</div>
+          <div class="stat" id="hero-status">TRACKING</div>
         </div>
       </div>
     </div>
 
     <div class="btns">
-      <span class="btn off"><span class="k">[</span>Paper · on request<span class="k">]</span></span>
-      <span class="btn off"><span class="k">[</span>arXiv · soon<span class="k">]</span></span>
+      <span class="btn off"><span class="k">[</span>Paper &middot; on request<span class="k">]</span></span>
+      <span class="btn off"><span class="k">[</span>arXiv &middot; soon<span class="k">]</span></span>
       <a class="btn" href="https://github.com/khayes95/pinocchio"><span class="k">[</span>Code<span class="k">]</span></a>
       <a class="btn" href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio"><span class="k">[</span>Demo<span class="k">]</span></a>
       <a class="btn" href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio"><span class="k">[</span>Checkpoints<span class="k">]</span></a>
     </div>
+
+    <!-- KPI band -->
+    <div class="kpis">
+      <div class="kpi"><div class="n">0.862</div><div class="l">held-out <b>AUROC</b> predicting correctness on the four frontier source models</div></div>
+      <div class="kpi"><div class="n">0.815</div><div class="l">mean <b>AUROC</b>, zero-shot, on <b>12 unseen models</b> across 7 organizations</div></div>
+      <div class="kpi"><div class="n">0.06<span class="s"> ECE</span></div><div class="l">on a new target after about <b>100 labels</b>, down from <b>0.26</b></div></div>
+      <div class="kpi"><div class="n">1<span class="s"> pass</span></div><div class="l">single forward pass, <b>no logits</b>, weights, samples, or fine-tuning</div></div>
+    </div>
   </div>
 </section>
 
-<!-- BRIEF -->
-<section id="brief">
+<!-- ACCESS PROBLEM -->
+<section id="access">
   <div class="wrap">
-    <div class="sechead"><span class="tag">01</span><h2>The brief</h2></div>
+    <div class="sechead"><span class="tag">01</span><h2>The access problem</h2></div>
     <div class="cols2">
       <div class="prose">
-        <p>In high-stakes settings you need not only accurate models but honest uncertainty per prediction. The usual tools (log-probabilities, sampling, fine-tuning) are exactly what a closed API withholds.</p>
-        <p><strong>Pinocchio</strong> is a suite of 8B checkpoints that assigns an uncertainty estimate to any model's prediction using only the <em>text</em> of the response. Text LLMs and vision-language models alike.</p>
+        <p>The models doing the most consequential work are closed. Call GPT-5, Claude, or Gemini and you get text and a bill, nothing else.</p>
+        <p>Every standard uncertainty method needs an internal the endpoint withholds: token <strong>log-probabilities</strong>, repeated <strong>sampling</strong>, <strong>ensembles</strong>, <strong>activations</strong>, or a round of <strong>fine-tuning</strong>. None of it is reachable through an API, so the usual toolkit does not run on the systems that most need one.</p>
       </div>
       <div class="prose">
-        <p>It transfers across model families without retraining and plugs into an existing pipeline in two lines. We train it on a curated, difficulty-spread mixture of hard benchmarks so it sees confident successes and confident failures.</p>
-        <p>Against black-box baselines it wins on calibration and discrimination, and generalises to models whose responses it never trained on.</p>
+        <p><strong>Pinocchio</strong> reads the one signal always returned, the response text. Given a question <em>Q</em> and an answer <em>A</em>, a small external calibrator returns <em>P(correct)</em> in a single forward pass.</p>
+        <p>It never touches the target: no logits, weights, sampling, or fine-tuning. Because it consumes text alone, a new model is just new text, so one instrument scores GPT-5, Claude, Gemini, and open models through a single interface. Closest prior work: <strong>APRICOT</strong> (Ulmer et al., 2024).</p>
       </div>
     </div>
+
+    <div class="plate" style="margin-top:26px;">
+      <div class="phd"><span class="f">Fig. 01-A</span><span>the sealed endpoint, one channel out</span></div>
+      <svg viewBox="0 0 900 232" role="img" aria-label="A closed API seals logits, weights, sampling, and gradients. Only the response text leaves the endpoint and reaches Pinocchio, which returns P(correct).">
+        <text x="24" y="112" font-family="'JetBrains Mono',monospace" font-size="12" fill="#8b98a5">prompt</text>
+        <line x1="24" y1="126" x2="196" y2="126" stroke="#2b333d" stroke-width="1.4"/>
+        <polygon points="196,121 208,126 196,131" fill="#2b333d"/>
+        <!-- sealed box -->
+        <rect x="210" y="42" width="300" height="166" fill="#0e1116" stroke="#2b333d" stroke-width="1.4"/>
+        <text x="228" y="66" font-family="'JetBrains Mono',monospace" font-size="12" letter-spacing="2" fill="#7b8592">CLOSED API</text>
+        <g transform="translate(468,52)" stroke="#7b8592" stroke-width="1.4" fill="none">
+          <rect x="0" y="8" width="18" height="14"/><path d="M3 8 V4 a6 6 0 0 1 12 0 V8"/>
+        </g>
+        <g font-family="'JetBrains Mono',monospace" font-size="13" fill="#4a545e">
+          <text x="238" y="104">logits</text><line x1="234" y1="99" x2="322" y2="99" stroke="#3a434c" stroke-width="1"/>
+          <text x="238" y="132">weights</text><line x1="234" y1="127" x2="338" y2="127" stroke="#3a434c" stroke-width="1"/>
+          <text x="238" y="160">sampling</text><line x1="234" y1="155" x2="346" y2="155" stroke="#3a434c" stroke-width="1"/>
+          <text x="238" y="188">gradients</text><line x1="234" y1="183" x2="352" y2="183" stroke="#3a434c" stroke-width="1"/>
+        </g>
+        <g font-family="'JetBrains Mono',monospace" font-size="10.5" fill="#7b8592">
+          <text x="404" y="104">sealed</text><text x="404" y="132">sealed</text><text x="404" y="160">sealed</text><text x="404" y="188">sealed</text>
+        </g>
+        <!-- only channel out -->
+        <line x1="510" y1="126" x2="628" y2="126" stroke="#2fe3cb" stroke-width="1.8"/>
+        <polygon points="628,120 642,126 628,132" fill="#2fe3cb"/>
+        <text x="512" y="112" font-family="'JetBrains Mono',monospace" font-size="11.5" fill="#2fe3cb">response text</text>
+        <text x="512" y="148" font-family="'JetBrains Mono',monospace" font-size="10.5" fill="#7b8592">the only channel</text>
+        <!-- pinocchio node -->
+        <rect x="644" y="99" width="150" height="54" fill="#12161c" stroke="#2fe3cb" stroke-width="1.6"/>
+        <text x="719" y="131" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="17" fill="#e4ebf2">PINOCCHIO</text>
+        <line x1="794" y1="126" x2="856" y2="126" stroke="#2b333d" stroke-width="1.4"/>
+        <polygon points="856,121 868,126 856,131" fill="#2b333d"/>
+        <text x="719" y="179" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="12" fill="#2fe3cb">P(correct)</text>
+      </svg>
+      <div class="cap"><span>Everything a log-prob method would inspect is sealed. Pinocchio reads only the text the endpoint returns, the one channel a black box leaves open.</span></div>
+    </div>
+
+    <div class="sidenote">The obvious black-box fallback, asking the model how sure it is (<b>verbalized confidence</b>), is available but weak: about <span class="r">0.65</span> AUROC against roughly <span class="t">0.88</span> for Pinocchio on the same head-to-head set.</div>
   </div>
 </section>
 
-<!-- READINGS -->
-<section id="readings">
+<!-- ONE CALIBRATOR -->
+<section id="calibrator">
   <div class="wrap">
-    <div class="sechead"><span class="tag">02</span><h2>Two readings</h2></div>
-    <div class="reads">
-      <div class="read ok">
-        <div class="hd"><span>Channel A</span><span class="v">✓ TRUTHFUL</span></div>
-        <div class="bd">
-          <p class="qa" data-shatter><b>Q</b> · Boiling point of water at sea level (°C)?<br><b>A</b> · 100 °C.</p>
-          <div class="meter"><span class="num">0.96</span><span class="track"><i style="width:96%"></i></span></div>
+    <div class="sechead"><span class="tag">02</span><h2>One calibrator, seven sources</h2></div>
+    <div class="cols2" style="margin-bottom:26px;">
+      <div class="prose">
+        <p>We do not fit one estimator per model. A <strong>single</strong> calibrator trains jointly on responses from <strong>seven source models</strong>, four frontier systems plus three capability-diverse ones.</p>
+        <p>On <strong>held-out</strong> frontier responses it reaches <strong>0.862 AUROC</strong> separating correct answers from incorrect, reading nothing but the text.</p>
+      </div>
+      <div class="prose">
+        <p>The mixture is deliberate. Train only on models that are almost always right and the calibrator rarely sees a confident failure, so it learns little.</p>
+        <p>Spanning a range of capability shows it confident successes <em>and</em> confident mistakes, which is what lets <em>P(correct)</em> tell the two apart. The trace below is that separation on the held-out frontier set.</p>
+      </div>
+    </div>
+
+    <div class="pool">
+      <div class="grp">
+        <h4>Frontier <span class="t">4 models</span></h4>
+        <div class="chipset">
+          <span class="mchip f">Claude Fable 5</span>
+          <span class="mchip f">Claude Opus 5</span>
+          <span class="mchip f">GPT-5.6</span>
+          <span class="mchip f">Kimi 3</span>
         </div>
       </div>
-      <div class="read no">
-        <div class="hd"><span>Channel B</span><span class="v">✗ FABRICATED</span></div>
-        <div class="bd">
-          <p class="qa" data-shatter><b>Q</b> · Who won the 1931 Nobel Prize in Physics?<br><b>A</b> · Einstein, for the photoelectric effect.</p>
-          <div class="meter"><span class="num">0.11</span><span class="track"><i style="width:11%"></i></span></div>
+      <div class="grp">
+        <h4>Capability-diverse <span class="t">3 models</span></h4>
+        <div class="chipset">
+          <span class="mchip d">GPT-5-mini</span>
+          <span class="mchip d">GPT-5.2</span>
+          <span class="mchip d">Qwen3.5-397B</span>
         </div>
       </div>
+      <div class="arrow">All seven feed <b>one</b> jointly trained checkpoint, not seven. The diverse sources are what carry it to unseen model families (Section 04).</div>
     </div>
-    <p class="note">No Physics prize was awarded in 1931. Same instrument, same two lines of code. It simply registers the doubt on Channel B.</p>
+
+    <div class="plate bezel" style="margin-top:22px;">
+      <div class="phd"><span class="f">Trace 02-A</span><span>held-out discrimination, frontier sources</span></div>
+      <svg viewBox="0 0 900 250" role="img" aria-label="Distributions of P(correct) for correct versus incorrect answers, well separated, AUROC 0.862.">
+        <line x1="70" y1="195" x2="860" y2="195" stroke="#2b333d" stroke-width="1.2"/>
+        <path d="M110 195 C 190 195 208 66 258 66 C 308 66 330 195 408 195 Z" fill="#ff5b5b" fill-opacity="0.14" stroke="#ff5b5b" stroke-width="1.6"/>
+        <path d="M440 195 C 552 195 574 42 636 42 C 700 42 730 195 828 195 Z" fill="#2fe3cb" fill-opacity="0.15" stroke="#2fe3cb" stroke-width="1.9"/>
+        <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#7b8592">
+          <text x="96" y="216">0.0</text><text x="452" y="216" text-anchor="middle">0.5</text><text x="836" y="216" text-anchor="end">1.0</text>
+          <text x="465" y="238" text-anchor="middle" letter-spacing="1.5">P(correct) assigned by the calibrator</text>
+        </g>
+        <g font-family="'JetBrains Mono',monospace" font-size="12">
+          <rect x="86" y="34" width="12" height="12" fill="#ff5b5b" fill-opacity="0.5" stroke="#ff5b5b"/><text x="106" y="45" fill="#8b98a5">incorrect answers</text>
+          <rect x="86" y="54" width="12" height="12" fill="#2fe3cb" fill-opacity="0.5" stroke="#2fe3cb"/><text x="106" y="65" fill="#8b98a5">correct answers</text>
+        </g>
+        <text x="852" y="58" text-anchor="end" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="44" fill="#e4ebf2">0.862</text>
+        <text x="852" y="76" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="11" letter-spacing="2.5" fill="#7b8592">AUROC</text>
+      </svg>
+      <div class="cap"><span>One calibrator, held out on the four frontier source models. Reading only text, it drives right and wrong answers apart.</span></div>
+    </div>
   </div>
 </section>
 
-<!-- USAGE -->
-<section id="usage">
+<!-- TRANSFER -->
+<section id="transfer">
   <div class="wrap">
-    <div class="sechead"><span class="tag">03</span><h2>Wiring it in</h2></div>
-    <div class="code">
-      <div class="bar"><span>quickstart.py</span><span>python</span></div>
-<pre><code><span class="kw">from</span> pinocchio <span class="kw">import</span> Judge
-
-judge = Judge.from_pretrained(<span class="str">"KevinDavidHayes/pinocchio-text-8b"</span>)
-
-<span class="com"># Score any model's response: OpenAI, Anthropic, vLLM, local HF, anything.</span>
-response = openai.chat.completions.create(model=<span class="str">"gpt-5.6"</span>, messages=[...])
-p_correct = judge.score(question, response.choices[<span class="num">0</span>].message.content)
-
-<span class="kw">if</span> p_correct &lt; <span class="num">0.5</span>:
-    log(<span class="str">"Low confidence. Flag for human review."</span>)</code></pre>
+    <div class="sechead"><span class="tag">03</span><h2>Transfer to models it never saw</h2></div>
+    <div class="prose" style="margin-bottom:24px;">
+      <p>The same calibrator, with <strong>no target labels</strong> and no retraining, scores <strong>12 unseen models across 7 organizations</strong> at <strong>0.815 mean AUROC</strong>. Four are named below, spanning Google, Mistral, Meta, and DeepSeek. Each clears its own verbalized confidence (about <strong>0.65</strong>) by a wide margin.</p>
     </div>
-    <p class="note">Same API for VLMs: pass an <code>image</code> alongside the <code>question</code>/<code>response</code> and load <code>pinocchio-vlm-8b</code>.</p>
+
+    <div class="plate">
+      <div class="phd"><span class="f">Trace 03-A</span><span>zero-shot transfer, no target labels</span></div>
+      <svg viewBox="0 0 900 262" role="img" aria-label="Zero-shot transfer AUROC bars: Gemini 3.1 Pro 0.863, Mistral-7B 0.828, LLaMA-3.1-8B 0.825, DeepSeek-R1 0.802. Mean of 12 is 0.815, verbalized confidence baseline is 0.65.">
+        <g stroke="#1d232b" stroke-width="1">
+          <line x1="300" y1="36" x2="300" y2="200"/><line x1="570" y1="36" x2="570" y2="200"/><line x1="840" y1="36" x2="840" y2="200"/>
+        </g>
+        <line x1="502.5" y1="40" x2="502.5" y2="200" stroke="#ff5b5b" stroke-width="1" stroke-dasharray="3 5"/>
+        <text x="502.5" y="216" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10.5" fill="#ff5b5b">verbalized conf. 0.65</text>
+        <line x1="725.25" y1="36" x2="725.25" y2="200" stroke="#2fe3cb" stroke-width="1.2" stroke-dasharray="4 4"/>
+        <text x="725.25" y="30" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10.5" fill="#2fe3cb">mean of 12 &middot; 0.815</text>
+        <g font-family="'JetBrains Mono',monospace" font-size="13" fill="#8b98a5">
+          <rect x="300" y="46" width="490.05" height="24" fill="#2fe3cb" fill-opacity="0.85"/>
+          <text x="292" y="63" text-anchor="end">Gemini 3.1 Pro</text><text x="798" y="63" fill="#e4ebf2" font-weight="700">0.863</text>
+          <rect x="300" y="86" width="442.8" height="24" fill="#2fe3cb" fill-opacity="0.72"/>
+          <text x="292" y="103" text-anchor="end">Mistral-7B</text><text x="751" y="103" fill="#e4ebf2" font-weight="700">0.828</text>
+          <rect x="300" y="126" width="438.75" height="24" fill="#2fe3cb" fill-opacity="0.72"/>
+          <text x="292" y="143" text-anchor="end">LLaMA-3.1-8B</text><text x="747" y="143" fill="#e4ebf2" font-weight="700">0.825</text>
+          <rect x="300" y="166" width="407.7" height="24" fill="#2fe3cb" fill-opacity="0.62"/>
+          <text x="292" y="183" text-anchor="end">DeepSeek-R1</text><text x="716" y="183" fill="#e4ebf2" font-weight="700">0.802</text>
+        </g>
+        <line x1="300" y1="200" x2="840" y2="200" stroke="#2b333d" stroke-width="1.2"/>
+        <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#7b8592">
+          <text x="300" y="234" text-anchor="middle">0.5</text><text x="570" y="234" text-anchor="middle">0.7</text><text x="840" y="234" text-anchor="middle">0.9</text>
+          <text x="570" y="256" text-anchor="middle">AUROC (zero-shot, no target labels), 4 of 12 models shown</text>
+        </g>
+      </svg>
+      <div class="cap"><span>One calibrator, trained on the seven sources, applied unchanged to models from other organizations. It reads uncertainty from text, so an unseen model is just unseen text.</span></div>
+    </div>
   </div>
 </section>
 
-<!-- MODULES -->
-<section id="modules">
+<!-- DIVERSITY -->
+<section id="diversity">
   <div class="wrap">
-    <div class="sechead"><span class="tag">04</span><h2>Units</h2></div>
-    <div class="mods">
-      <div class="mod"><div class="u">Unit I</div><h3>One transferable judge</h3><p>A single 8B calibrator hits <b>0.878 AUROC</b> on the hard suite and transfers zero-shot to <b>16 unseen models across 9 orgs</b>, the four newest frontier systems among them.</p></div>
-      <div class="mod"><div class="u">Unit II</div><h3>Text and vision, one checkpoint</h3><p>Scores text-LLM and vision-language responses at <b>comparable AUROC</b>, so there is no separate per-modality model to run.</p></div>
-      <div class="mod"><div class="u">Unit III</div><h3>Small, and correctable</h3><p>The <b>0.8B</b> model keeps <b>99%</b> of the 9B AUROC, and about <b>100 labels</b> halve the calibration error on a new model.</p></div>
+    <div class="sechead"><span class="tag">04</span><h2>Why it transfers: capability diversity</h2></div>
+    <div class="cols2" style="margin-bottom:26px;">
+      <div class="prose">
+        <p>Transfer is earned by the choice of sources, not automatic. Train the calibrator only on frontier models and mean transfer AUROC is <strong>0.649</strong>, near chance on some targets.</p>
+        <p>Add capability-diverse sources, weaker and mid-tier models that fail in visible, varied ways, and the same evaluation rises to <strong>0.814</strong>.</p>
+      </div>
+      <div class="prose">
+        <p>The reason is what the calibrator gets to observe. Frontier-only data is nearly all confident successes, so it never learns the texture of a confident mistake.</p>
+        <p>Diverse sources supply exactly those failures. Watching how wrong answers read across the capability range is what teaches the calibrator to generalize to models it has never scored.</p>
+      </div>
+    </div>
+
+    <div class="plate">
+      <div class="phd"><span class="f">Trace 04-A</span><span>mean transfer AUROC by training mixture</span></div>
+      <svg viewBox="0 0 720 268" role="img" aria-label="Mean transfer AUROC rises from 0.649 with frontier-only sources to 0.814 with capability-diverse sources, a gain of 0.165.">
+        <line x1="120" y1="40" x2="120" y2="210" stroke="#2b333d" stroke-width="1.2"/>
+        <line x1="120" y1="210" x2="680" y2="210" stroke="#2b333d" stroke-width="1.2"/>
+        <g stroke="#1d232b" stroke-width="1">
+          <line x1="120" y1="210" x2="680" y2="210"/><line x1="120" y1="125" x2="680" y2="125"/><line x1="120" y1="40" x2="680" y2="40"/>
+        </g>
+        <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#7b8592">
+          <text x="112" y="214" text-anchor="end">0.5</text><text x="112" y="129" text-anchor="end">0.7</text><text x="112" y="44" text-anchor="end">0.9</text>
+        </g>
+        <rect x="210" y="146.68" width="110" height="63.32" fill="#eab84a" fill-opacity="0.75"/>
+        <text x="265" y="138" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="22" fill="#e4ebf2">0.649</text>
+        <rect x="430" y="76.55" width="110" height="133.45" fill="#2fe3cb" fill-opacity="0.85"/>
+        <text x="485" y="68" text-anchor="middle" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="22" fill="#e4ebf2">0.814</text>
+        <line x1="345" y1="150" x2="345" y2="82" stroke="#2fe3cb" stroke-width="1.4" stroke-dasharray="3 4"/>
+        <polygon points="345,78 341,88 349,88" fill="#2fe3cb"/>
+        <text x="356" y="118" font-family="'JetBrains Mono',monospace" font-size="12" fill="#2fe3cb">+0.165</text>
+        <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#8b98a5">
+          <text x="265" y="230" text-anchor="middle">frontier only</text>
+          <text x="485" y="230" text-anchor="middle">with diverse sources</text>
+          <text x="400" y="256" text-anchor="middle" fill="#7b8592">mean AUROC across the transfer targets</text>
+        </g>
+      </svg>
+      <div class="cap"><span>Same targets, same evaluation. The only change is who the calibrator trained on. Confident failures, supplied by diverse sources, are what carry over.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- RECALIBRATE -->
+<section id="recalibrate">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">05</span><h2>Correct it with about 100 labels</h2></div>
+    <div class="cols2" style="margin-bottom:26px;">
+      <div class="prose">
+        <p>Ranking transfers well out of the box, but the absolute probabilities on a brand new target can drift. That is cheap to fix.</p>
+        <p>About <strong>100 labeled responses</strong> from the new model recalibrate the instrument, cutting expected calibration error (ECE) from <strong>0.26 to 0.06</strong> while preserving the ranking the calibrator already learned.</p>
+      </div>
+      <div class="prose">
+        <p>In a reliability diagram, a perfectly calibrated instrument sits on the diagonal: stated confidence equals observed accuracy.</p>
+        <p>Before recalibration the curve sags below the line, overconfident. After roughly 100 labels it snaps back onto the diagonal.</p>
+      </div>
+    </div>
+
+    <div class="plate">
+      <div class="phd"><span class="f">Trace 05-A</span><span>reliability, before and after about 100 labels</span></div>
+      <svg viewBox="0 0 720 300" role="img" aria-label="Reliability diagram: before recalibration the curve sits below the diagonal with ECE 0.26, after about 100 labels it hugs the diagonal with ECE 0.06.">
+        <rect x="150" y="50" width="220" height="220" fill="none" stroke="#2b333d"/>
+        <line x1="150" y1="270" x2="370" y2="50" stroke="#7b8592" stroke-dasharray="4 5"/>
+        <text x="300" y="72" font-family="'JetBrains Mono',monospace" font-size="11" fill="#7b8592" font-style="italic" transform="rotate(-45 300 72)">perfect</text>
+        <path d="M150 270 C 210 250 262 220 300 196 C 336 174 356 150 370 138" fill="none" stroke="#ff5b5b" stroke-width="2.4"/>
+        <g fill="#ff5b5b"><circle cx="205" cy="252" r="3"/><circle cx="260" cy="222" r="3"/><circle cx="315" cy="186" r="3"/></g>
+        <path d="M150 270 C 208 214 262 158 300 118 C 334 84 356 62 370 52" fill="none" stroke="#2fe3cb" stroke-width="2.6"/>
+        <g fill="#2fe3cb"><circle cx="205" cy="216" r="3"/><circle cx="260" cy="160" r="3"/><circle cx="315" cy="102" r="3"/></g>
+        <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#7b8592">
+          <text x="150" y="288">0</text><text x="370" y="288" text-anchor="end">1</text>
+          <text x="260" y="296" text-anchor="middle">confidence</text>
+          <text x="140" y="270" text-anchor="end">0</text><text x="140" y="56" text-anchor="end">1</text>
+          <text x="132" y="160" text-anchor="middle" transform="rotate(-90 132 160)">accuracy</text>
+        </g>
+        <g font-family="'JetBrains Mono',monospace" font-size="13">
+          <rect x="430" y="86" width="14" height="14" fill="#ff5b5b" fill-opacity="0.5" stroke="#ff5b5b"/>
+          <text x="454" y="98" fill="#8b98a5">before</text>
+          <text x="454" y="122" fill="#7b8592" font-size="11">ECE</text>
+          <text x="530" y="123" fill="#e4ebf2" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="26">0.26</text>
+          <rect x="430" y="164" width="14" height="14" fill="#2fe3cb" fill-opacity="0.5" stroke="#2fe3cb"/>
+          <text x="454" y="176" fill="#8b98a5">after ~100 labels</text>
+          <text x="454" y="200" fill="#7b8592" font-size="11">ECE</text>
+          <text x="530" y="201" fill="#e4ebf2" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="26">0.06</text>
+          <line x1="512" y1="228" x2="560" y2="228" stroke="#2fe3cb" stroke-width="1.4"/>
+          <text x="454" y="252" fill="#7b8592" font-size="11">ranking preserved</text>
+        </g>
+      </svg>
+      <div class="cap"><span>A small, cheap labeling budget snaps the probabilities back onto the diagonal without disturbing the ordering.</span></div>
     </div>
   </div>
 </section>
@@ -279,12 +565,13 @@ p_correct = judge.score(question, response.choices[<span class="num">0</span>].m
 <!-- METHOD -->
 <section id="method">
   <div class="wrap">
-    <div class="sechead"><span class="tag">05</span><h2>How it reads</h2></div>
+    <div class="sechead"><span class="tag">06</span><h2>How it reads</h2></div>
     <div class="cols2">
       <div class="prose">
-        <p>Given a question <em>Q</em> and candidate answer <em>A</em>, the judge is prompted for a binary verdict and reads P(correct) from the softmax over the next-token logits for <code style="color:var(--truth)">ii</code> (Yes) vs <code style="color:var(--truth)">i</code> (No):</p>
-        <div class="eq">$$\hat p(\text{correct})=\frac{e^{z_{\text{yes}}}}{e^{z_{\text{yes}}}+e^{z_{\text{no}}}}$$</div>
-        <p>It never touches the target model's internals, only its text. Post-hoc temperature scaling sharpens calibration while preserving ranking.</p>
+        <p>The calibrator is a small model prompted for a binary verdict on <em>(Q, A)</em>. In one forward pass it reads its own next-token logits for the two option tokens, <code class="inl">ii</code> (Yes) against <code class="inl">i</code> (No), and returns their softmax as <em>P(correct)</em>:</p>
+        <div class="eq">$$P(\text{correct}) = \frac{e^{z_{\text{Yes}}}}{e^{z_{\text{Yes}}} + e^{z_{\text{No}}}}$$</div>
+        <p>Those are the <em>calibrator's</em> logits, not the target's. The target is never inspected, only its text. One pass, no sampling, no fine-tuning of the target.</p>
+        <p>Against the obvious black-box baseline, asking the target how confident it is, Pinocchio wins by a wide margin: about <strong>0.88 AUROC</strong> versus about <strong>0.65</strong> for verbalized confidence. A compact, CPU-friendly checkpoint is also released for lightweight deployment.</p>
       </div>
       <div>
         <div class="prompt">Question: {Q}
@@ -292,126 +579,100 @@ p_correct = judge.score(question, response.choices[<span class="num">0</span>].m
 Answer: {A}
 
 Is the answer correct? (i) No  (ii) Yes</div>
-        <p class="note">Training mix: 15+ text benchmarks (GSM8K, BBEH, SimpleQA, GPQA, OmniMath, HLE, …) and 8 vision-language benchmarks (MathVista, MathVerse, CharXiv, MMMU, HallusionBench, VSR, …).</p>
+        <div class="plate" style="margin-top:20px;">
+          <div class="phd"><span class="f">Trace 06-A</span><span>head-to-head AUROC</span></div>
+          <svg viewBox="0 0 420 172" role="img" aria-label="Head-to-head AUROC: Pinocchio about 0.88 versus verbalized confidence about 0.65.">
+            <g stroke="#1d232b" stroke-width="1">
+              <line x1="150" y1="26" x2="150" y2="130"/><line x1="400" y1="26" x2="400" y2="130"/>
+            </g>
+            <rect x="150" y="42" width="211" height="26" fill="#2fe3cb" fill-opacity="0.85"/>
+            <text x="142" y="59" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="12" fill="#8b98a5">Pinocchio</text>
+            <text x="369" y="59" font-family="'JetBrains Mono',monospace" font-size="12" fill="#e4ebf2" font-weight="700">0.88</text>
+            <rect x="150" y="86" width="83" height="26" fill="#ff5b5b" fill-opacity="0.7"/>
+            <text x="142" y="103" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="12" fill="#8b98a5">verbalized</text>
+            <text x="241" y="103" font-family="'JetBrains Mono',monospace" font-size="12" fill="#e4ebf2" font-weight="700">0.65</text>
+            <line x1="150" y1="130" x2="400" y2="130" stroke="#2b333d" stroke-width="1.2"/>
+            <g font-family="'JetBrains Mono',monospace" font-size="11" fill="#7b8592">
+              <text x="150" y="148" text-anchor="middle">0.5</text><text x="400" y="148" text-anchor="middle">0.95</text>
+              <text x="275" y="166" text-anchor="middle">AUROC on the head-to-head set</text>
+            </g>
+          </svg>
+        </div>
+        <p class="note">Training spans hard text benchmarks (GSM8K, BBEH, SimpleQA, GPQA, OmniMath, HLE, and more) where confident successes and confident failures both appear.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- TRACES -->
-<section id="traces">
+<!-- USAGE -->
+<section id="usage">
   <div class="wrap">
-    <div class="sechead"><span class="tag">06</span><h2>Traces</h2></div>
-    <p class="note" style="margin-top:-14px; margin-bottom:24px;">Traces are schematic illustrations; the numerals shown (flagship 0.878 AUROC; frontier transfer 0.822 to 0.854, pooled 0.837; 97% of full performance at 250 labels) are the paper's reported values.</p>
+    <div class="sechead"><span class="tag">07</span><h2>Wiring it in</h2></div>
+    <div class="code">
+      <div class="bar"><span>quickstart.py</span><span>python</span></div>
+<pre><code><span class="kw">from</span> pinocchio <span class="kw">import</span> Calibrator
 
-    <div class="plate" style="margin-bottom:22px;">
-      <svg viewBox="0 0 900 250" role="img" aria-label="Zero-shot transfer AUROC on the four newest frontier models: Kimi 3 0.854, Opus 5 0.845, GPT-5.6 0.830, Fable 5 0.822">
-        <g stroke="#232a33" stroke-width="1">
-          <line x1="300" y1="26" x2="300" y2="200"/><line x1="570" y1="26" x2="570" y2="200"/><line x1="840" y1="26" x2="840" y2="200"/>
-        </g>
-        <line x1="643" y1="26" x2="643" y2="200" stroke="#ff5b5b" stroke-width="1" stroke-dasharray="3 5"/>
-        <text x="643" y="20" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="11" fill="#ff5b5b">their own confidence · 0.69</text>
-        <g font-family="'JetBrains Mono',monospace" font-size="14" fill="#8592a0">
-          <rect x="300" y="34" width="477.9" height="28" fill="#39d3bf" fill-opacity="0.85"/>
-          <text x="292" y="53" text-anchor="end">Kimi 3</text><text x="786" y="53" fill="#dfe6ee" font-weight="700">0.854</text>
-          <rect x="300" y="76" width="465.75" height="28" fill="#39d3bf" fill-opacity="0.85"/>
-          <text x="292" y="95" text-anchor="end">Claude Opus 5</text><text x="774" y="95" fill="#dfe6ee" font-weight="700">0.845</text>
-          <rect x="300" y="118" width="445.5" height="28" fill="#39d3bf" fill-opacity="0.85"/>
-          <text x="292" y="137" text-anchor="end">GPT-5.6</text><text x="754" y="137" fill="#dfe6ee" font-weight="700">0.830</text>
-          <rect x="300" y="160" width="434.7" height="28" fill="#39d3bf" fill-opacity="0.85"/>
-          <text x="292" y="179" text-anchor="end">Claude Fable 5</text><text x="743" y="179" fill="#dfe6ee" font-weight="700">0.822</text>
-        </g>
-        <line x1="300" y1="200" x2="840" y2="200" stroke="#2f3843" stroke-width="1.2"/>
-        <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#5c6772">
-          <text x="300" y="218" text-anchor="middle">0.5</text><text x="570" y="218" text-anchor="middle">0.7</text><text x="840" y="218" text-anchor="middle">0.9</text>
-          <text x="570" y="240" text-anchor="middle">AUROC · zero-shot, no target labels</text>
-        </g>
-      </svg>
-      <div class="cap"><span class="f">Trace 00</span><span>Zero-shot transfer. One calibrator, trained only on older models, scores the four newest black-box systems it never saw. Pooled 0.837 against 0.691 for the models' own verbalized confidence.</span></div>
-    </div>
+<span class="com"># One calibrator scores any black-box model, from the response text alone.</span>
+cal = Calibrator.<span class="fn">from_pretrained</span>(<span class="str">"KevinDavidHayes/pinocchio"</span>)
 
-    <div class="plate" style="margin-bottom:22px;">
-      <svg viewBox="0 0 900 240" role="img" aria-label="P(correct) separates correct from incorrect answers; AUROC 0.878">
-        <g stroke="#1c222a" stroke-width="1"><line x1="60" y1="185" x2="860" y2="185"/></g>
-        <path d="M110 185 C 190 185 205 60 250 60 C 300 60 320 185 400 185 Z" fill="#ff5b5b" fill-opacity="0.14" stroke="#ff5b5b" stroke-width="1.6"/>
-        <path d="M430 185 C 540 185 560 40 620 40 C 690 40 720 185 820 185 Z" fill="#39d3bf" fill-opacity="0.14" stroke="#39d3bf" stroke-width="1.8"/>
-        <line x1="60" y1="185" x2="870" y2="185" stroke="#2f3843"/>
-        <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#5c6772">
-          <text x="88" y="208">0</text><text x="452" y="208">0.5</text><text x="812" y="208">1.0</text>
-          <text x="400" y="228" fill="#5c6772" letter-spacing="2">P(correct)</text>
-        </g>
-        <g font-family="'JetBrains Mono',monospace" font-size="12">
-          <rect x="80" y="34" width="12" height="12" fill="#ff5b5b" fill-opacity="0.5" stroke="#ff5b5b"/><text x="100" y="45" fill="#8592a0">incorrect</text>
-          <rect x="80" y="54" width="12" height="12" fill="#39d3bf" fill-opacity="0.5" stroke="#39d3bf"/><text x="100" y="65" fill="#8592a0">correct</text>
-        </g>
-        <text x="858" y="52" text-anchor="end" font-family="'Space Grotesk',sans-serif" font-weight="700" font-size="40" fill="#dfe6ee">0.878</text>
-        <text x="858" y="70" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="11" letter-spacing="2" fill="#5c6772">AUROC</text>
-      </svg>
-      <div class="cap"><span class="f">Trace 01</span><span>Reading only the text, the instrument drives right and wrong answers apart. Discrimination, AUROC 0.878.</span></div>
-    </div>
+answer = openai.chat.completions.<span class="fn">create</span>(
+    model=<span class="str">"gpt-5.6"</span>,
+    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: question}],
+).choices[<span class="num">0</span>].message.content
 
-    <div class="cols2" style="gap:22px;">
-      <div class="plate">
-        <svg viewBox="0 0 420 260" role="img" aria-label="Reliability diagram along the diagonal">
-          <rect x="60" y="25" width="320" height="200" fill="none" stroke="#232a33"/>
-          <line x1="60" y1="225" x2="380" y2="25" stroke="#5c6772" stroke-dasharray="4 5"/>
-          <polyline points="60,220 124,188 188,150 252,108 316,62 380,32" fill="none" stroke="#39d3bf" stroke-width="2.4"/>
-          <g fill="#39d3bf"><circle cx="124" cy="188" r="3"/><circle cx="188" cy="150" r="3"/><circle cx="252" cy="108" r="3"/><circle cx="316" cy="62" r="3"/></g>
-          <g font-family="'JetBrains Mono',monospace" font-size="11" fill="#5c6772">
-            <text x="220" y="248" text-anchor="middle">confidence</text>
-            <text x="24" y="130" text-anchor="middle" transform="rotate(-90 24 130)">accuracy</text>
-            <text x="150" y="52" fill="#8592a0" font-style="italic">perfect</text>
-          </g>
-        </svg>
-        <div class="cap"><span class="f">Trace 02</span><span>Calibrated after temperature scaling: stated confidence tracks accuracy.</span></div>
-      </div>
-      <div class="plate">
-        <svg viewBox="0 0 420 260" role="img" aria-label="AUROC rises then plateaus; 250 examples reach 97 percent">
-          <line x1="64" y1="30" x2="64" y2="222" stroke="#232a33"/><line x1="64" y1="222" x2="392" y2="222" stroke="#232a33"/>
-          <path d="M64 222 C 88 150 116 70 150 54 C 240 46 320 44 388 42" fill="none" stroke="#39d3bf" stroke-width="2.6"/>
-          <line x1="150" y1="54" x2="150" y2="222" stroke="#ff5b5b" stroke-dasharray="4 5"/>
-          <circle cx="150" cy="54" r="4.5" fill="#ff5b5b"/>
-          <g font-family="'JetBrains Mono',monospace" font-size="11" fill="#5c6772">
-            <text x="56" y="36" text-anchor="end">.90</text><text x="56" y="225" text-anchor="end">.50</text>
-            <text x="150" y="240" text-anchor="middle" fill="#ff5b5b">250</text><text x="388" y="240" text-anchor="middle">full</text>
-            <text x="230" y="256" text-anchor="middle">labelled examples</text>
-          </g>
-          <text x="168" y="50" font-family="'Space Grotesk',sans-serif" font-weight="600" font-size="16" fill="#dfe6ee">97% of full</text>
-        </svg>
-        <div class="cap"><span class="f">Trace 03</span><span>Data-efficient. 250 examples reach 97% of full-data AUROC.</span></div>
-      </div>
+p_correct = cal.<span class="fn">score</span>(question, answer)   <span class="com"># single forward pass, no logits or weights</span>
+
+<span class="kw">if</span> p_correct &lt; <span class="num">0.5</span>:
+    <span class="fn">escalate</span>(question, answer)          <span class="com"># route low-confidence output to a human</span></code></pre>
     </div>
+    <p class="note">Same interface across model families: swap <code>model="gpt-5.6"</code> for a Claude, Gemini, or local response and call <code>cal.score</code> unchanged. Recalibrate a new target with about <code>100</code> labels: <code>cal.recalibrate(labels)</code>.</p>
   </div>
 </section>
 
 <!-- LIVE DEMO -->
 <section id="demo">
   <div class="wrap">
-    <div class="sechead"><span class="tag">07</span><h2>Live demo</h2></div>
-    <div class="pino-demo" style="--d-ink:#dfe6ee;--d-good:#39d3bf;--d-bad:#ff5b5b;--d-panel:#14181e;--d-line:#2f3843;">
+    <div class="sechead"><span class="tag">08</span><h2>Read a specimen</h2></div>
+    <div class="pino-demo bezel">
       <div class="pd-chips">
-        <button class="pd-chip on" data-p="0.96" data-verdict="Truthful" data-q="Boiling point of water at sea level?" data-a="100 &#176;C.">Water boils at 100&#176;C</button>
-        <button class="pd-chip" data-p="0.88" data-verdict="Truthful" data-q="The integral of 2x?" data-a="x&#178; + C.">&#8747;2x dx = x&#178; + C</button>
-        <button class="pd-chip" data-p="0.63" data-verdict="Leaning correct" data-q="Population of Lagos in 2025?" data-a="About 15.9 million.">Lagos &#8776; 15.9M</button>
-        <button class="pd-chip" data-p="0.19" data-verdict="Fabricated" data-q="Capital of Australia?" data-a="Sydney.">Capital = Sydney</button>
-        <button class="pd-chip" data-p="0.11" data-verdict="Fabricated" data-q="Who won the 1931 Nobel Prize in Physics?" data-a="Einstein, for the photoelectric effect.">1931 Nobel = Einstein</button>
+        <button class="pd-chip correct on" data-p="0.96" data-verdict="Truthful" data-q="Boiling point of water at sea level?" data-a="100 &#176;C." data-why="Standard atmospheric boiling point."><span class="d"></span>Water boils at 100&#176;C</button>
+        <button class="pd-chip correct" data-p="0.90" data-verdict="Truthful" data-q="The integral of 2x?" data-a="x&#178; + C." data-why="Elementary antiderivative, checks out."><span class="d"></span>&#8747;2x dx = x&#178; + C</button>
+        <button class="pd-chip mid" data-p="0.62" data-verdict="Leaning correct" data-q="Population of Lagos in 2025?" data-a="About 15.9 million." data-why="Plausible estimate, but figures vary by source."><span class="d"></span>Lagos &#8776; 15.9M</button>
+        <button class="pd-chip wrong" data-p="0.08" data-verdict="Fabricated" data-q="Patient on warfarin: safe to start fluconazole?" data-a="No significant interaction, standard dosing is fine." data-why="Fluconazole inhibits warfarin clearance, so the combination raises bleeding risk."><span class="d"></span>Warfarin + fluconazole safe</button>
+        <button class="pd-chip wrong" data-p="0.14" data-verdict="Fabricated" data-q="Capital of Australia?" data-a="Sydney." data-why="Fluent and confident, but the capital is Canberra."><span class="d"></span>Capital = Sydney</button>
+        <button class="pd-chip wrong" data-p="0.10" data-verdict="Fabricated" data-q="Who won the 1931 Nobel Prize in Physics?" data-a="Einstein, for the photoelectric effect." data-why="No Physics prize was awarded in 1931, and Einstein won in 1921."><span class="d"></span>1931 Nobel = Einstein</button>
       </div>
       <div class="pd-stage">
-        <svg class="pd-gauge" viewBox="0 0 200 128" aria-hidden="true">
-          <path d="M20 110 A80 80 0 0 1 180 110" fill="none" stroke="var(--_line)" stroke-width="10"/>
-          <path d="M100 30 A80 80 0 0 1 180 110" fill="none" stroke="var(--_g)" stroke-width="10" opacity=".85"/>
-          <path d="M20 110 A80 80 0 0 1 63 46" fill="none" stroke="var(--_b)" stroke-width="10" opacity=".5"/>
-          <line class="pd-needle" x1="100" y1="110" x2="100" y2="44" stroke="var(--_ink)" stroke-width="3" stroke-linecap="round"/>
-          <circle cx="100" cy="110" r="6" fill="var(--_ink)"/>
+        <svg class="pd-gauge" viewBox="0 0 200 132" aria-hidden="true">
+          <path d="M22 100 A78 78 0 0 1 100 22" fill="none" stroke="#ff5b5b" stroke-width="8" opacity="0.55"/>
+          <path d="M100 22 A78 78 0 0 1 178 100" fill="none" stroke="#2fe3cb" stroke-width="8" opacity="0.8"/>
+          <g stroke="#3a434e" stroke-width="1.4">
+            <line x1="20" y1="100" x2="29" y2="100"/><line x1="23.91" y1="75.28" x2="32.47" y2="78.06"/>
+            <line x1="35.28" y1="52.98" x2="42.56" y2="58.27"/><line x1="52.98" y1="35.28" x2="58.27" y2="42.56"/>
+            <line x1="75.28" y1="23.91" x2="78.06" y2="32.47"/><line x1="124.72" y1="23.91" x2="121.94" y2="32.47"/>
+            <line x1="147.02" y1="35.28" x2="141.73" y2="42.56"/><line x1="164.72" y1="52.98" x2="157.44" y2="58.27"/>
+            <line x1="176.09" y1="75.28" x2="167.53" y2="78.06"/>
+          </g>
+          <g stroke="#59636e" stroke-width="2">
+            <line x1="20" y1="100" x2="31" y2="100"/><line x1="100" y1="20" x2="100" y2="31"/><line x1="180" y1="100" x2="169" y2="100"/>
+          </g>
+          <text x="18" y="114" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">0</text>
+          <text x="100" y="15" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">0.5</text>
+          <text x="184" y="114" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7b8592">1</text>
+          <text x="44" y="94" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#b13a3a" letter-spacing="1">LIE</text>
+          <text x="156" y="94" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" fill="#1f9d8c" letter-spacing="1">TRUE</text>
+          <line class="pd-needle" x1="100" y1="100" x2="100" y2="36" stroke="#e4ebf2" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="100" cy="100" r="6" fill="#e4ebf2"/>
         </svg>
-        <div class="pd-readout">
+        <div class="pd-readout" aria-live="polite">
           <div class="pd-verdict">Ready</div>
           <div class="pd-p">P(correct) <span class="pd-val">0.00</span></div>
           <div class="pd-bar"><i></i></div>
         </div>
       </div>
       <div class="pd-qa">Pick an example; the instrument reads it.</div>
-      <p class="pd-note">Illustrative demo with preset examples. The live model runs in the <a href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio">HF Space</a> once it is public.</p>
+      <p class="pd-why"></p>
+      <p class="pd-note">Illustrative demo with preset readings. <b style="color:var(--lie);font-weight:500;">Red</b> chips are fluent, confident answers that are wrong; Pinocchio still assigns them low P(correct). The live model runs in the <a href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio">HF Space</a> once public.</p>
     </div>
   </div>
 </section>
@@ -419,12 +680,13 @@ Is the answer correct? (i) No  (ii) Yes</div>
 <!-- CITE -->
 <section id="cite">
   <div class="wrap">
-    <div class="sechead"><span class="tag">08</span><h2>Cite</h2></div>
+    <div class="sechead"><span class="tag">09</span><h2>Cite</h2></div>
     <div class="code">
       <div class="bar"><span>pinocchio.bib</span><span>bibtex</span></div>
 <pre><code><span class="kw">@inproceedings</span>{hayes2026pinocchio,
   title     = {Pinocchio: Estimating the Uncertainty of Black-Box Language Models},
-  author    = {Hayes, Kevin David},
+  author    = {Hayes, Kevin David and Pal, Arka and Zhang, Haosong and
+               Goldstein, Tom and Goldblum, Micah},
   booktitle = {Conference on Language Modeling (COLM)},
   year      = {<span class="num">2026</span>}
 }</code></pre>
@@ -434,40 +696,15 @@ Is the answer correct? (i) No  (ii) Yes</div>
 
 <footer class="foot">
   <div class="wrap">
-    <p>Local preview; the paper is accepted to COLM 2026 (camera-ready in progress). Code repository and HuggingFace Space are currently private; links resolve once the paper is released. Instrument panel typeset in Space Grotesk &amp; JetBrains Mono.</p>
+    <p>Local preview. Accepted to COLM 2026; arXiv and PDF follow shortly, paper available on request until then. Code and HuggingFace Space are private and resolve on release. The clinical example is illustrative, not medical advice. Every numeral is a reported value; figure shapes are schematic, and the strip chart and gauge are illustrative. Set in Space Grotesk and JetBrains Mono.</p>
   </div>
 </footer>
 
-<style id="pino-fx-style">
-.sh-flyer{position:fixed;margin:0;padding:0;pointer-events:none;z-index:99999;white-space:pre}
-[data-shatter]{cursor:pointer;transition:opacity .18s ease}
-[data-shatter]:hover{opacity:.72}
-.pino-demo{--_g:var(--d-good,#3d6a58);--_b:var(--d-bad,#b0331c);--_ink:var(--d-ink,#211c15);--_panel:var(--d-panel,#fff);--_line:var(--d-line,#ccc);border:1px solid var(--_line);background:var(--_panel);padding:24px}
-.pino-demo .pd-chips{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px}
-.pino-demo .pd-chip{font-family:inherit;font-size:13px;cursor:pointer;border:1px solid var(--_line);background:transparent;color:var(--_ink);padding:8px 14px;transition:.15s}
-.pino-demo .pd-chip:hover{border-color:var(--_ink)}
-.pino-demo .pd-chip.on{background:var(--_ink);color:var(--_panel)}
-.pino-demo .pd-stage{display:flex;gap:30px;align-items:center;flex-wrap:wrap}
-.pino-demo .pd-gauge{width:210px;height:auto;flex:none}
-.pino-demo .pd-needle{transform-origin:100px 110px;transition:transform 1.1s cubic-bezier(.2,.85,.2,1)}
-.pino-demo .pd-readout{flex:1;min-width:190px}
-.pino-demo .pd-verdict{font-family:inherit;font-weight:800;font-size:26px;color:var(--_ink);letter-spacing:.01em;transition:opacity .2s}
-.pino-demo .pd-verdict.good{color:var(--_g)}
-.pino-demo .pd-verdict.bad{color:var(--_b)}
-.pino-demo .pd-p{font-family:inherit;font-size:12px;opacity:.7;margin-top:6px;text-transform:uppercase;letter-spacing:.14em}
-.pino-demo .pd-p .pd-val{font-weight:700;opacity:1}
-.pino-demo .pd-bar{height:8px;background:var(--_line);margin-top:14px;overflow:hidden}
-.pino-demo .pd-bar i{display:block;height:100%;width:0;background:var(--_g);transition:width 1.1s cubic-bezier(.2,.85,.2,1)}
-.pino-demo.is-bad .pd-bar i{background:var(--_b)}
-.pino-demo .pd-qa{margin-top:20px;font-size:14px;line-height:1.55;min-height:2.6em;color:var(--_ink);opacity:.92}
-.pino-demo .pd-note{margin-top:14px;font-size:12px;opacity:.55}
-.pino-demo .pd-note a{color:inherit}
-.pino-demo.analyzing .pd-verdict{opacity:.35}
-@media (prefers-reduced-motion: reduce){.pino-demo .pd-needle,.pino-demo .pd-bar i{transition:none}}
-</style>
 <script>
 (function(){
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- click to shatter (event delegation) ---------- */
   function splitChars(root){
     var tw=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null), t, texts=[];
     while(t=tw.nextNode()) texts.push(t);
@@ -516,37 +753,140 @@ Is the answer correct? (i) No  (ii) Yes</div>
         setTimeout(function(){ el.style.transition=''; el.__busy=false; }, 560); });
     }, 1050);
   }
+  document.addEventListener('click', function(e){
+    var el=e.target.closest && e.target.closest('[data-shatter]');
+    if(el){ shatter(el); }
+  });
+
+  /* ---------- live strip chart + hero gauge (calmed, pauses off-screen) ---------- */
+  function initStrip(){
+    var teal=document.getElementById('hs-teal'), tealG=document.getElementById('hs-teal-glow'),
+        red=document.getElementById('hs-red'), redG=document.getElementById('hs-red-glow'),
+        marks=document.getElementById('hs-marks'), curDot=document.getElementById('hs-cur'),
+        idxEl=document.getElementById('hs-idx'),
+        hNeedle=document.getElementById('hero-needle'), hVal=document.getElementById('hero-pval'),
+        hStat=document.getElementById('hero-status'), hWrap=document.getElementById('hero-readout');
+    if(!teal||!hNeedle) return;
+
+    var PX0=30, PX1=890, TOP=24, BOT=196, dx=8;
+    var maxPts=Math.floor((PX1-PX0)/dx)+1;
+    function yFor(p){ return BOT - p*(BOT-TOP); }
+
+    var buf=[], k=0, spLen=0, spI=0, spDepth=0, nextSpike=20;
+    function nextSample(){
+      k++;
+      var base=0.882 + 0.018*Math.sin(k*0.10) + (Math.random()-0.5)*0.022;
+      if(spLen<=0 && k>=nextSpike){
+        spLen=4+Math.floor(Math.random()*3); spI=0;
+        spDepth=0.58+Math.random()*0.22;
+        nextSpike=k + 44 + Math.floor(Math.random()*54);
+      }
+      var p=base;
+      if(spLen>0){
+        spI++;
+        p=base - Math.sin((spI/(spLen+1))*Math.PI)*spDepth;
+        if(spI>=spLen) spLen=0;
+      }
+      return Math.max(0.03, Math.min(0.985, p));
+    }
+    function setHero(p){
+      hNeedle.style.transform='rotate('+((p-0.5)*180).toFixed(1)+'deg)';
+      hVal.textContent=p.toFixed(2);
+      var bad=p<0.45;
+      hWrap.classList.toggle('alert', bad);
+      hStat.textContent=bad?'ERROR FLAGGED':'TRACKING';
+    }
+    function draw(){
+      var pts='', dRed='', run=false, i, x, y, p;
+      for(i=0;i<buf.length;i++){
+        p=buf[i]; x=PX0+i*dx; y=yFor(p);
+        pts+=x.toFixed(1)+','+y.toFixed(1)+' ';
+        if(p<0.45){ dRed+=(run?' L':' M')+x.toFixed(1)+','+y.toFixed(1); run=true; } else run=false;
+      }
+      pts=pts.trim();
+      teal.setAttribute('points', pts); tealG.setAttribute('points', pts);
+      red.setAttribute('d', dRed); redG.setAttribute('d', dRed);
+      var mk='';
+      i=0;
+      while(i<buf.length){
+        if(buf[i]<0.45){
+          var minv=buf[i], mi=i;
+          while(i<buf.length && buf[i]<0.45){ if(buf[i]<minv){minv=buf[i]; mi=i;} i++; }
+          if(minv<0.30){
+            var mx=PX0+mi*dx, my=yFor(minv);
+            mk+='<circle cx="'+mx.toFixed(1)+'" cy="'+my.toFixed(1)+'" r="3.5" fill="#ff5b5b"/>'
+              + '<line x1="'+mx.toFixed(1)+'" y1="'+my.toFixed(1)+'" x2="'+mx.toFixed(1)+'" y2="'+(my-14).toFixed(1)+'" stroke="#ff5b5b" stroke-width="1"/>'
+              + '<text x="'+mx.toFixed(1)+'" y="'+(my-18).toFixed(1)+'" text-anchor="middle" font-family="\'JetBrains Mono\',monospace" font-size="10" fill="#ff5b5b">FLAG</text>';
+          }
+        } else i++;
+      }
+      marks.innerHTML=mk;
+      var lp=buf[buf.length-1], lx=PX0+(buf.length-1)*dx, ly=yFor(lp);
+      curDot.setAttribute('cx', lx.toFixed(1)); curDot.setAttribute('cy', ly.toFixed(1));
+      curDot.setAttribute('fill', lp<0.45 ? '#ff5b5b' : '#2fe3cb');
+      setHero(lp);
+      if(idxEl) idxEl.textContent=String(100000+k).slice(1);
+    }
+
+    for(var q=0;q<maxPts;q++) buf.push(nextSample());
+    draw();
+
+    if(reduce) return;
+
+    var running=false, visible=true, last=0, acc=0, step=120;
+    function loop(ts){
+      if(!visible){ running=false; return; }
+      if(!last) last=ts;
+      acc+=ts-last; last=ts;
+      while(acc>=step){ buf.push(nextSample()); if(buf.length>maxPts) buf.shift(); acc-=step; }
+      draw();
+      requestAnimationFrame(loop);
+    }
+    function start(){ if(!running){ running=true; last=0; requestAnimationFrame(loop); } }
+    if('IntersectionObserver' in window){
+      var io=new IntersectionObserver(function(ents){
+        visible=ents[0].isIntersecting;
+        if(visible) start();
+      }, {threshold:0.05});
+      io.observe(hWrap);
+    } else { start(); }
+  }
+
+  /* ---------- interactive demo gauge ---------- */
   function initDemo(box){
     var needle=box.querySelector('.pd-needle'), val=box.querySelector('.pd-val'),
         verdict=box.querySelector('.pd-verdict'), bar=box.querySelector('.pd-bar i'),
-        qa=box.querySelector('.pd-qa'), chips=box.querySelectorAll('.pd-chip'), raf;
-    function show(p, vt, q, a){
+        qa=box.querySelector('.pd-qa'), why=box.querySelector('.pd-why'),
+        chips=box.querySelectorAll('.pd-chip'), raf;
+    function show(p, vt, q, a, wt){
       var good=p>=0.5;
       box.classList.toggle('is-bad', !good);
       verdict.className='pd-verdict '+(good?'good':'bad'); verdict.textContent=vt;
       needle.style.transform='rotate('+((p-0.5)*180).toFixed(1)+'deg)';
       bar.style.width=(p*100).toFixed(1)+'%';
-      qa.innerHTML='<b>Q.</b> '+q+' &nbsp;&nbsp; <b>A.</b> '+a;
+      qa.innerHTML='<b>Q</b> '+q+' &nbsp; <b>A</b> <span data-shatter title="click to shatter">'+a+'</span>';
+      why.innerHTML=wt?('<b>Why:</b> '+wt):'';
       var from=parseFloat(val.textContent)||0, t0=null;
       cancelAnimationFrame(raf);
-      function tick(ts){ if(t0===null)t0=ts; var k=Math.min(1,(ts-t0)/1000), e=1-Math.pow(1-k,3);
-        val.textContent=(from+(p-from)*e).toFixed(2); if(k<1) raf=requestAnimationFrame(tick); }
+      function tick(ts){ if(t0===null)t0=ts; var kk=Math.min(1,(ts-t0)/1000), e=1-Math.pow(1-kk,3);
+        val.textContent=(from+(p-from)*e).toFixed(2); if(kk<1) raf=requestAnimationFrame(tick); }
       raf=requestAnimationFrame(tick);
     }
     chips.forEach(function(c){ c.addEventListener('click', function(){
       chips.forEach(function(x){x.classList.remove('on');}); c.classList.add('on');
       box.classList.add('analyzing');
       setTimeout(function(){ box.classList.remove('analyzing');
-        show(parseFloat(c.dataset.p), c.dataset.verdict, c.dataset.q, c.dataset.a); }, 430);
+        show(parseFloat(c.dataset.p), c.dataset.verdict, c.dataset.q, c.dataset.a, c.dataset.why); }, 420);
     });});
     var first=box.querySelector('.pd-chip.on')||chips[0];
-    if(first) setTimeout(function(){ show(parseFloat(first.dataset.p), first.dataset.verdict, first.dataset.q, first.dataset.a); }, 350);
+    if(first) setTimeout(function(){ show(parseFloat(first.dataset.p), first.dataset.verdict, first.dataset.q, first.dataset.a, first.dataset.why); }, 350);
   }
+
   function init(){
     document.querySelectorAll('[data-shatter]').forEach(function(el){
       if(!el.getAttribute('title')) el.setAttribute('title','click to shatter');
-      el.addEventListener('click', function(){ shatter(el); });
     });
+    initStrip();
     document.querySelectorAll('.pino-demo').forEach(initDemo);
   }
   if(document.readyState!=='loading') init(); else document.addEventListener('DOMContentLoaded', init);
