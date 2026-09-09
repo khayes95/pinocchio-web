@@ -205,7 +205,7 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
   <div class="wrap">
     <p class="ey">A lie detector for language models &nbsp;/&nbsp; <b>P(correct)</b> for any black-box API</p>
     <h1>Pin<span class="n">o</span>cchio</h1>
-    <p class="sub">One external calibrator reads only the <b>text</b> of a response and returns the probability it is correct, in a <b>single forward pass</b>. No log-probabilities, no sampling, no weights, no fine-tuning of the target. It scores even the newest closed systems it never saw, <b>Claude Fable 5</b>, <b>Claude Opus 5</b>, <b>GPT-5.6</b>, and <b>Kimi 3</b>, and flags the <span class="lie">confident fabrications</span>.</p>
+    <p class="sub">One external calibrator reads only the <b>text</b> of a response and returns the probability it is correct, in a <b>single forward pass</b>. No log-probabilities, no sampling, no weights, no fine-tuning of the target. It scores even the newest closed systems it never saw, <b>Claude Fable 5</b>, <b>Claude Opus 5</b>, <b>GPT-5.6</b>, <b>Kimi 3</b>, and the newest, <b>GPT-6 Astra</b>, and flags the <span class="lie">confident fabrications</span>.</p>
 
     <p class="authors"><b>Kevin David Hayes</b>, Arka Pal, Haosong Zhang, Tom Goldstein, Micah Goldblum</p>
     <p class="affil"><a href="https://khayes95.github.io/">University of Maryland, College Park</a></p>
@@ -223,7 +223,7 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
     <!-- KPI band -->
     <div class="kpis">
       <div class="kpi"><div class="n">0.862</div><div class="l">held-out <b>AUROC</b> predicting correctness on the four frontier source models</div></div>
-      <div class="kpi"><div class="n">0.815</div><div class="l">mean <b>AUROC</b>, zero-shot, on <b>12 unseen models</b> across 7 organizations</div></div>
+      <div class="kpi"><div class="n">0.814</div><div class="l">mean <b>AUROC</b>, zero-shot, on <b>13 unseen models</b> across 8 organizations</div></div>
       <div class="kpi"><div class="n">0.06<span class="s"> ECE</span></div><div class="l">on a new target after about <b>100 labels</b>, down from <b>0.26</b></div></div>
       <div class="kpi"><div class="n">1<span class="s"> pass</span></div><div class="l">single forward pass, <b>no logits</b>, weights, samples, or fine-tuning</div></div>
     </div>
@@ -330,7 +330,7 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
   <div class="wrap">
     <div class="sechead"><span class="tag">03</span><h2>Transfer to models it never saw</h2></div>
     <div class="prose" style="margin-bottom:24px;">
-      <p>The same calibrator, with <strong>no target labels</strong> and no retraining, scores <strong>12 unseen models across 7 organizations</strong> at <strong>0.815 mean AUROC</strong>. Four are named below, spanning Google, Mistral, Meta, and DeepSeek. That is only a modest drop from the <strong>0.862</strong> on the models it was trained on, and far above simple baselines like response length.</p>
+      <p>The same calibrator, with <strong>no target labels</strong> and no retraining, scores <strong>13 unseen models across 8 organizations</strong> at <strong>0.815 mean AUROC</strong>. Four are named below, spanning Google, Mistral, Meta, and DeepSeek. That is only a modest drop from the <strong>0.862</strong> on the models it was trained on, and far above simple baselines like response length.</p>
     </div>
 
     <div class="plate">
@@ -342,7 +342,7 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
         <line x1="502.5" y1="40" x2="502.5" y2="200" stroke="#ff5b5b" stroke-width="1" stroke-dasharray="3 5"/>
         <text x="502.5" y="216" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10.5" fill="#ff5b5b">verbalized conf. 0.65</text>
         <line x1="725.25" y1="36" x2="725.25" y2="200" stroke="#2fe3cb" stroke-width="1.2" stroke-dasharray="4 4"/>
-        <text x="725.25" y="30" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10.5" fill="#2fe3cb">mean of 12 &middot; 0.815</text>
+        <text x="725.25" y="30" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10.5" fill="#2fe3cb">mean of 13 &middot; 0.814</text>
         <g font-family="'JetBrains Mono',monospace" font-size="13" fill="#8b98a5">
           <rect x="300" y="46" width="490.05" height="24" fill="#2fe3cb" fill-opacity="0.85"/>
           <text x="292" y="63" text-anchor="end">Gemini 3.1 Pro</text><text x="798" y="63" fill="#e4ebf2" font-weight="700">0.863</text>
@@ -356,7 +356,7 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
         <line x1="300" y1="200" x2="840" y2="200" stroke="#2b333d" stroke-width="1.2"/>
         <g font-family="'JetBrains Mono',monospace" font-size="12" fill="#7b8592">
           <text x="300" y="234" text-anchor="middle">0.5</text><text x="570" y="234" text-anchor="middle">0.7</text><text x="840" y="234" text-anchor="middle">0.9</text>
-          <text x="570" y="256" text-anchor="middle">AUROC (zero-shot, no target labels), 4 of 12 models shown</text>
+          <text x="570" y="256" text-anchor="middle">AUROC (zero-shot, no target labels), 4 of 13 models shown</text>
         </g>
       </svg>
       <div class="cap"><span>One calibrator, trained on the seven sources, applied unchanged to models from other organizations. It reads uncertainty from text, so an unseen model is just unseen text.</span></div>
