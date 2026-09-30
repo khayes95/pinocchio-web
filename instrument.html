@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>Pinocchio</title>
-<meta name="description" content="Pinocchio: an external calibrator that reads only the text of a black-box model's response and returns P(correct) in a single forward pass. Accepted to COLM 2026.">
+<meta name="description" content="Pinocchio: an external calibrator that estimates the correctness of responses from black-box API models, in a single forward pass. Accepted to COLM 2026.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -192,7 +192,7 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
 
 <div class="status">
   <div class="wrap">
-    <div class="id"><span class="dot"></span><b>PINOCCHIO</b><span class="sub-id"> // BLACK-BOX UNCERTAINTY INSTRUMENT</span></div>
+    <div class="id"><span class="dot"></span><b>PINOCCHIO</b><span class="sub-id"> // EXTERNAL CALIBRATOR FOR BLACK-BOX LLMS</span></div>
     <nav>
       <a href="https://arxiv.org/abs/2609.24881">Paper</a><a href="#usage">Usage</a><a href="#cite">Cite</a>
     </nav>
@@ -201,9 +201,9 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
 
 <section class="hero">
   <div class="wrap">
-    <p class="ey">A lie detector for language models &nbsp;/&nbsp; <b>P(correct)</b> for any black-box API</p>
+    <p class="ey">Fast uncertainty estimates for black-box language models &nbsp;/&nbsp; <b>P(correct)</b> in a single forward pass</p>
     <h1>Pin<span class="n">o</span>cchio</h1>
-    <p class="sub">One external calibrator reads only the <b>text</b> of a response and returns the probability it is correct, in a <b>single forward pass</b>. No log-probabilities, no sampling, no weights, no fine-tuning of the target. It scores closed models it never saw and flags the <span class="lie">confident fabrications</span>.</p>
+    <p class="sub">An external calibrator that estimates the correctness of responses from black-box API models. It needs only a <b>single forward pass</b> to generate an uncertainty estimate and requires no access to the target model's <b>logits, weights, or internal states</b>.</p>
 
     <p class="authors"><b>Kevin David Hayes</b>, Arka Pal, Haosong Zhang, Tom Goldstein, Micah Goldblum</p>
     <p class="affil"><a href="https://khayes95.github.io/">University of Maryland &middot; Ritual AI &middot; Fudan University &middot; Columbia University</a></p>
@@ -218,9 +218,9 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
     </div>
 
     <div class="kpis">
-      <div class="kpi"><div class="n">0.863</div><div class="l">held-out <b>AUROC</b> predicting correctness, against <b>0.649</b> for the best single-pass baseline</div></div>
-      <div class="kpi"><div class="n">0.814</div><div class="l">mean <b>AUROC</b>, zero-shot, on <b>13 unseen models</b> across 8 organizations</div></div>
-      <div class="kpi"><div class="n">1<span class="s"> pass</span></div><div class="l">single forward pass, <b>no logits</b>, weights, samples, or fine-tuning</div></div>
+      <div class="kpi"><div class="n">0.863</div><div class="l"><b>AUROC</b> predicting correctness on the held-out test set, compared with <b>0.649</b> for the strongest single-pass black-box baseline</div></div>
+      <div class="kpi"><div class="n">0.814</div><div class="l">mean <b>AUROC</b> in zero-shot transfer to <b>thirteen unseen models</b> across eight organizations</div></div>
+      <div class="kpi"><div class="n">1<span class="s"> pass</span></div><div class="l">single forward pass, without <b>sampling</b>, <b>logit access</b>, or modification of the target model</div></div>
     </div>
   </div>
 </section>
@@ -228,15 +228,15 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
 <section id="access">
   <div class="wrap">
     <div class="prose">
-      <p>The models doing the most consequential work are closed. They do not return log-probabilities and cannot be fine-tuned, which rules out most ways of estimating uncertainty, and their own stated confidence is poorly calibrated.</p>
-      <p>Pinocchio sits outside the target model. It reads the question and the answer, and predicts whether that answer is correct. It handles vision-language inputs and transfers to models it was never trained on. <em>Full method, baselines and ablations are in the <a href="https://arxiv.org/abs/2609.24881">paper</a>.</em></p>
+      <p>In high-stakes decision-making applications of large language models (LLMs), practitioners require not only accurate LLMs but also uncertainty estimates for their predictions. Existing approaches to uncertainty estimation for LLMs require access to log-probabilities output by the model or require fine-tuning access. However, many industrial LLM products use closed-source API models, and many such API models like GPT do not return log-probabilities and may not allow fine-tuning.</p>
+      <p>Rather than extracting uncertainty from the target model itself, we train a small calibrator that takes the question, the response, and the identity of the model that produced it, plus any associated images for vision-language tasks, and outputs a probability of correctness. A lightweight text-only 0.8B checkpoint matches our largest model's AUROC. <em>Full method, baselines and ablations are in the <a href="https://arxiv.org/abs/2609.24881">paper</a>.</em></p>
     </div>
   </div>
 </section>
 
 <section id="usage">
   <div class="wrap">
-    <div class="sechead"><span class="tag">01</span><h2>Wiring it in</h2></div>
+    <div class="sechead"><span class="tag">01</span><h2>Usage</h2></div>
     <div class="code">
       <div class="bar"><span>quickstart.py</span><span>python</span></div>
 <pre><code><span class="com"># pip install pinocchio-uq</span>
@@ -250,7 +250,7 @@ p_correct = judge.<span class="fn">score</span>(response, messages=messages)
 <span class="kw">if</span> p_correct &lt; <span class="num">0.5</span>:
     <span class="fn">escalate</span>(response)</code></pre>
     </div>
-    <p class="note">Same interface across model families: swap <code>model="gpt-5"</code> for a Claude, Gemini, or local response and call <code>judge.score</code> unchanged. The package ships a lightweight text-only 0.8B checkpoint.</p>
+    <p class="note">We release code for adding uncertainty estimation to existing repos in only two additional lines of code. The package ships a lightweight text-only 0.8B checkpoint.</p>
   </div>
 </section>
 

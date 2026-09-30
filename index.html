@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pinocchio</title>
-<meta name="description" content="Pinocchio: fast uncertainty estimates for black-box LLMs and VLMs. Score any model's response with P(correct) in two lines of code.">
+<meta name="description" content="Pinocchio: an external calibrator that estimates the correctness of responses from black-box API models, in a single forward pass. Accepted to COLM 2026.">
 <meta property="og:title" content="Pinocchio: Fast Uncertainty Estimates for Black-Box Language Models">
-<meta property="og:description" content="A lightweight calibrator that predicts whether an API model's answer is correct, in a single forward pass.">
+<meta property="og:description" content="An external calibrator that estimates the correctness of responses from black-box API models, in a single forward pass.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://pinocchio-uq.com/">
 <meta property="og:image" content="https://pinocchio-uq.com/og.png">
@@ -125,9 +125,9 @@ footer p{ font-size:13px; color:var(--faint); text-align:center; max-width:64ch;
 
 <div class="wrap">
   <header class="hero">
-    <p class="eyebrow">Uncertainty for black-box language models</p>
+    <p class="eyebrow">An external calibrator for black-box API models</p>
     <h1 class="title">Pinocchio</h1>
-    <p class="subtitle">Fast uncertainty estimates for any LLM or VLM, in two lines of code.</p>
+    <p class="subtitle">Fast uncertainty estimates for black-box language models.</p>
 
     <div class="authors">
       <a href="https://khayes95.github.io/">Kevin David Hayes</a><sup>1</sup>,
@@ -150,15 +150,15 @@ footer p{ font-size:13px; color:var(--faint); text-align:center; max-width:64ch;
 
 <div class="wrap">
   <section class="col lead">
-    <p>Closed API models do not return log-probabilities and cannot be fine-tuned, which rules out most ways of estimating uncertainty. Their own stated confidence is poorly calibrated.</p>
-    <p><strong>Pinocchio</strong> is a separate, lightweight model that reads a question and an API model's answer and predicts whether that answer is correct. One forward pass, no logits, no sampling, no access to the target model. It handles vision-language inputs and transfers to models it was never trained on.</p>
+    <p>In high-stakes decision-making applications of large language models (LLMs), practitioners require not only accurate LLMs but also uncertainty estimates for their predictions. Existing approaches to uncertainty estimation for LLMs require access to log-probabilities output by the model or require fine-tuning access. However, many industrial LLM products use closed-source API models, and many such API models like GPT do not return log-probabilities and may not allow fine-tuning.</p>
+    <p><strong>Pinocchio</strong> is an external calibrator that estimates the correctness of responses from black-box API models. It takes the question, the response, and the identity of the model that produced it, plus any associated images for vision-language tasks, and outputs a probability of correctness. It needs only a single forward pass to generate an uncertainty estimate and requires no access to the target model's logits, weights, or internal states.</p>
   </section>
 
   <section class="col">
     <div class="stats">
-      <div class="stat"><div class="n">0.863</div><div class="l">AUROC predicting correctness, vs 0.649 for the best single-pass baseline</div></div>
-      <div class="stat"><div class="n">0.814</div><div class="l">Mean AUROC on 13 unseen target models across 8 organizations</div></div>
-      <div class="stat"><div class="n">1</div><div class="l">Forward pass per estimate, with no access to the target model</div></div>
+      <div class="stat"><div class="n">0.863</div><div class="l">AUROC predicting correctness on the held-out test set, compared with 0.649 for the strongest single-pass black-box baseline</div></div>
+      <div class="stat"><div class="n">0.814</div><div class="l">Mean AUROC in zero-shot transfer to thirteen unseen models across eight organizations</div></div>
+      <div class="stat"><div class="n">1</div><div class="l">Forward pass per estimate, without sampling, logit access, or modification of the target model</div></div>
     </div>
   </section>
 
@@ -172,7 +172,7 @@ judge = Pinocchio()  <span class="com"># load once</span>
 
 response = client.chat.completions.create(model=<span class="str">"gpt-5"</span>, messages=messages)
 p_correct = judge.score(response, messages=messages)</code></pre></div>
-<p class="note">The package ships a lightweight text-only 0.8B checkpoint.</p>
+<p class="note">We release code for adding uncertainty estimation to existing repos in only two additional lines of code. The package ships a lightweight text-only 0.8B checkpoint, which matches our largest model's AUROC.</p>
   </section>
 
   <section class="col">
