@@ -213,7 +213,8 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
       <a class="btn" href="https://arxiv.org/abs/2609.24881"><span class="k">[</span>Paper<span class="k">]</span></a>
       <a class="btn" href="https://github.com/khayes95/pinocchio"><span class="k">[</span>Code<span class="k">]</span></a>
       <a class="btn" href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio"><span class="k">[</span>Demo<span class="k">]</span></a>
-      <a class="btn" href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio"><span class="k">[</span>Checkpoints<span class="k">]</span></a>
+      <a class="btn" href="https://huggingface.co/KevinDavidHayes/pinocchio-0.8b"><span class="k">[</span>Checkpoints<span class="k">]</span></a>
+      <a class="btn" href="https://pypi.org/project/pinocchio-uq/"><span class="k">[</span>PyPI<span class="k">]</span></a>
     </div>
 
     <div class="kpis">
@@ -238,21 +239,18 @@ code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); backgroun
     <div class="sechead"><span class="tag">01</span><h2>Wiring it in</h2></div>
     <div class="code">
       <div class="bar"><span>quickstart.py</span><span>python</span></div>
-<pre><code><span class="kw">from</span> pinocchio <span class="kw">import</span> Pinocchio
+<pre><code><span class="com"># pip install pinocchio-uq</span>
+<span class="kw">from</span> pinocchio <span class="kw">import</span> Pinocchio
 
-judge = <span class="fn">Pinocchio</span>()
+judge = <span class="fn">Pinocchio</span>()  <span class="com"># load once</span>
 
-answer = openai.chat.completions.<span class="fn">create</span>(
-    model=<span class="str">"gpt-5.6"</span>,
-    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: question}],
-).choices[<span class="num">0</span>].message.content
-
-p_correct = judge.<span class="fn">score</span>(question=question, answer=answer)
+response = client.chat.completions.<span class="fn">create</span>(model=<span class="str">"gpt-5"</span>, messages=messages)
+p_correct = judge.<span class="fn">score</span>(response, messages=messages)
 
 <span class="kw">if</span> p_correct &lt; <span class="num">0.5</span>:
-    <span class="fn">escalate</span>(question, answer)</code></pre>
+    <span class="fn">escalate</span>(response)</code></pre>
     </div>
-    <p class="note">Same interface across model families: swap <code>model="gpt-5.6"</code> for a Claude, Gemini, or local response and call <code>judge.score</code> unchanged.</p>
+    <p class="note">Same interface across model families: swap <code>model="gpt-5"</code> for a Claude, Gemini, or local response and call <code>judge.score</code> unchanged. The package ships a lightweight text-only 0.8B checkpoint.</p>
   </div>
 </section>
 
