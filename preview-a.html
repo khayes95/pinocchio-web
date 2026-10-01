@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>Pinocchio</title>
+<meta name="description" content="Pinocchio: an external calibrator that reads only the text of a black-box model's response and returns P(correct) in a single forward pass. Accepted to COLM 2026.">
+<meta property="og:title" content="Pinocchio: Fast Uncertainty Estimates for Black-Box Language Models">
+<meta property="og:description" content="An external calibrator that reads the text of a black-box model's response and returns P(correct) in a single forward pass.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://pinocchio-uq.com/">
+<meta property="og:image" content="https://pinocchio-uq.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://pinocchio-uq.com/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<style>
+:root{
+  --bg:#0a0c0f; --bg2:#0e1116; --panel:#12161c; --panel2:#171d24;
+  --line:#1d232b; --line2:#2b333d;
+  --ink:#e4ebf2; --dim:#8b98a5; --faint:#7b8592;
+  --truth:#2fe3cb; --truth-d:#1f9d8c; --lie:#ff5b5b; --lie-d:#b13a3a; --amber:#eab84a;
+  --disp:"Space Grotesk", system-ui, -apple-system, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --maxw:1120px;
+}
+*{ box-sizing:border-box; }
+html{ scroll-behavior:smooth; }
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--disp); font-size:16px; line-height:1.65;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:48px 48px; background-position:center -1px;
+}
+/* soft vignette, whisper of scanlines (kept low to reduce visual noise) */
+body::before{ content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(128% 92% at 50% -6%, rgba(24,30,38,.30), rgba(9,11,14,.95) 68%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.007) 0 1px, transparent 1px 4px);
+}
+.wrap{ position:relative; z-index:1; max-width:var(--maxw); margin:0 auto; padding:0 26px; }
+a{ color:var(--truth); text-decoration:none; }
+::selection{ background:rgba(47,227,203,.24); color:#fff; }
+:focus-visible{ outline:2px solid var(--truth); outline-offset:3px; }
+
+/* bezel corner marks, reserved for the two anchor instruments */
+.bezel{ position:relative; }
+.bezel::before,.bezel::after{ content:""; position:absolute; width:11px; height:11px; pointer-events:none; z-index:2; }
+.bezel::before{ top:-1px; left:-1px; border-top:2px solid var(--truth); border-left:2px solid var(--truth); }
+.bezel::after{ bottom:-1px; right:-1px; border-bottom:2px solid var(--truth); border-right:2px solid var(--truth); }
+
+/* ---------- status bar ---------- */
+.status{ position:sticky; top:0; z-index:30; background:rgba(10,12,15,.88); backdrop-filter:blur(7px); border-bottom:1px solid var(--line2); }
+.status .wrap{ display:flex; align-items:center; justify-content:space-between; height:48px; }
+.status .id{ font-family:var(--mono); font-size:12px; letter-spacing:.2em; color:var(--dim); }
+.status .id b{ color:var(--ink); }
+.status .id .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--truth); box-shadow:0 0 9px var(--truth); margin-right:10px; vertical-align:middle; animation:blink 3.2s infinite; }
+@keyframes blink{ 0%,92%,100%{opacity:1} 96%{opacity:.25} }
+.status nav a{ font-family:var(--mono); color:var(--dim); font-size:11.5px; letter-spacing:.13em; text-transform:uppercase; margin-left:22px; }
+.status nav a:hover{ color:var(--truth); }
+@media(max-width:860px){ .status nav{ display:none; } }
+@media(max-width:620px){ .status .id .sub-id{ display:none; } }
+
+.ey{ font-family:var(--mono); font-size:12px; letter-spacing:.26em; text-transform:uppercase; color:var(--faint); margin:0; }
+.ey b{ color:var(--truth); font-weight:500; }
+
+/* ---------- hero ---------- */
+.hero{ padding:60px 0 22px; }
+.hero h1{ font-family:var(--disp); font-weight:700; font-size:clamp(50px,12vw,132px); line-height:.9; letter-spacing:-.035em; margin:16px 0 14px; color:var(--ink); }
+.hero h1 .n{ color:var(--lie); text-shadow:0 0 34px rgba(255,91,91,.4); }
+.hero .sub{ font-family:var(--disp); font-weight:400; font-size:clamp(17px,2.2vw,22px); color:var(--dim); max-width:66ch; margin:0 0 16px; line-height:1.5; }
+.hero .sub b{ color:var(--truth); font-weight:500; }
+.hero .sub .lie{ color:var(--lie); font-weight:500; }
+.authors{ font-family:var(--mono); font-size:12.5px; color:var(--dim); margin:20px 0 3px; letter-spacing:.02em; }
+.authors b{ color:var(--ink); font-weight:500; }
+.affil{ font-family:var(--mono); font-size:12px; color:var(--faint); margin:0 0 2px; }
+.affil a{ color:var(--dim); border-bottom:1px solid var(--line2); }
+.affil a:hover{ color:var(--truth); }
+.venue{ font-family:var(--mono); font-size:12.5px; color:var(--amber); letter-spacing:.06em; margin:8px 0 0; }
+.venue::before{ content:"\25C9"; margin-right:8px; }
+
+
+/* buttons */
+.btns{ display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; }
+.btn{ font-family:var(--mono); font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink); border:1px solid var(--line2); padding:11px 16px; background:var(--panel); transition:.15s; display:inline-flex; gap:8px; align-items:center; }
+.btn:hover{ border-color:var(--truth); color:var(--truth); box-shadow:0 0 18px -5px var(--truth); }
+.btn .k{ color:var(--faint); }
+.btn.off{ color:var(--faint); border-color:var(--line); cursor:default; }
+.btn.off:hover{ box-shadow:none; color:var(--faint); border-color:var(--line); }
+
+/* KPI band */
+.kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:26px 0 4px; }
+@media(max-width:760px){ .kpis{ grid-template-columns:1fr 1fr; } }
+.kpi{ border:1px solid var(--line2); background:var(--panel); padding:16px 16px 15px; }
+.kpi .n{ font-family:var(--disp); font-weight:700; font-size:34px; line-height:1; color:var(--truth); letter-spacing:-.02em; }
+.kpi .n .s{ font-size:16px; color:var(--faint); font-weight:500; }
+.kpi .l{ font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:.02em; margin-top:9px; line-height:1.45; }
+.kpi .l b{ color:var(--ink); font-weight:500; }
+
+/* ---------- sections ---------- */
+section{ padding:54px 0; position:relative; z-index:1; }
+.sechead{ display:flex; align-items:baseline; gap:16px; margin-bottom:26px; border-bottom:1px solid var(--line2); padding-bottom:14px; }
+.sechead .tag{ font-family:var(--mono); font-size:12px; color:var(--truth); letter-spacing:.18em; }
+.sechead h2{ font-family:var(--disp); font-weight:600; font-size:clamp(24px,3.3vw,34px); margin:0; color:var(--ink); letter-spacing:-.015em; }
+.prose{ color:var(--dim); max-width:70ch; }
+.prose p{ margin:0 0 15px; } .prose b, .prose strong{ color:var(--ink); font-weight:500; }
+.prose em{ color:var(--truth); font-style:normal; }
+.prose .no{ color:var(--lie); font-style:normal; }
+.cols2{ display:grid; grid-template-columns:1fr 1fr; gap:38px; } @media(max-width:800px){ .cols2{ grid-template-columns:1fr; gap:24px; } }
+code.inl{ font-family:var(--mono); font-size:.9em; color:var(--truth); background:var(--panel2); padding:1px 6px; border:1px solid var(--line); }
+
+/* sidebar note */
+.sidenote{ font-family:var(--mono); font-size:12.5px; line-height:1.7; color:var(--dim); border:1px solid var(--line2); border-left:2px solid var(--amber); background:var(--panel); padding:14px 16px; margin:24px 0 0; max-width:78ch; }
+.sidenote b{ color:var(--ink); } .sidenote .t{ color:var(--truth); } .sidenote .r{ color:var(--lie); }
+
+/* source pool chips */
+.pool{ border:1px solid var(--line2); background:var(--panel); padding:18px 18px 16px; margin-top:26px; }
+.pool .grp{ margin-bottom:16px; } .pool .grp:last-child{ margin-bottom:0; }
+.pool h4{ font-family:var(--disp); font-weight:600; font-size:14px; color:var(--ink); margin:0 0 10px; display:flex; align-items:baseline; gap:9px; }
+.pool h4 .t{ font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); font-weight:400; }
+.chipset{ display:flex; flex-wrap:wrap; gap:8px; }
+.mchip{ font-family:var(--mono); font-size:12px; padding:7px 12px; border:1px solid var(--line2); background:var(--panel2); color:var(--ink); }
+.mchip.f{ border-color:#2f5a54; color:#bff0e8; }
+.mchip.d{ border-color:#5a4a2f; color:#f0e2bf; }
+.pool .arrow{ font-family:var(--mono); font-size:11px; color:var(--faint); letter-spacing:.04em; margin-top:14px; line-height:1.6; }
+.pool .arrow b{ color:var(--truth); }
+
+/* figure plates */
+.plate{ border:1px solid var(--line2); background:var(--panel); }
+.plate .phd{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 15px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); }
+.plate .phd .f{ color:var(--truth); }
+.plate svg{ width:100%; height:auto; display:block; }
+.plate .cap{ display:flex; gap:12px; padding:12px 15px; border-top:1px solid var(--line); font-family:var(--mono); font-size:12px; color:var(--dim); line-height:1.5; }
+
+/* method */
+.prompt{ border:1px solid var(--line2); border-left:3px solid var(--lie); background:var(--panel); padding:16px 18px; font-family:var(--mono); font-size:13.5px; color:var(--ink); white-space:pre-wrap; line-height:1.85; }
+.eq{ color:var(--ink); margin:22px 0; text-align:center; overflow-x:auto; }
+.note{ color:var(--faint); font-family:var(--mono); font-size:12px; margin-top:12px; line-height:1.55; } .note code{ color:var(--truth); }
+
+/* code */
+.code{ border:1px solid var(--line2); background:#080a0d; }
+.code .bar{ display:flex; justify-content:space-between; padding:9px 15px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); }
+.code pre{ margin:0; padding:18px; overflow-x:auto; }
+.code code{ font-family:var(--mono); font-size:13.5px; line-height:1.85; color:#c7d0da; }
+.kw{color:#7fb0ff}.str{color:#2fe3cb}.com{color:#7b8592;font-style:italic}.num{color:#eab84a}.fn{color:#e4ebf2}
+
+/* live demo */
+.pino-demo{ border:1px solid var(--line2); background:var(--panel); padding:24px; }
+.pino-demo .pd-chips{ display:flex; flex-wrap:wrap; gap:9px; margin-bottom:24px; }
+.pino-demo .pd-chip{ font-family:var(--mono); font-size:12.5px; cursor:pointer; border:1px solid var(--line2); background:transparent; color:var(--dim); padding:10px 14px; transition:.15s; display:inline-flex; align-items:center; gap:8px; min-height:38px; }
+.pino-demo .pd-chip .d{ width:7px; height:7px; border-radius:50%; background:var(--faint); flex:none; }
+.pino-demo .pd-chip.correct .d{ background:var(--truth); }
+.pino-demo .pd-chip.mid .d{ background:var(--amber); }
+.pino-demo .pd-chip.wrong .d{ background:var(--lie); }
+.pino-demo .pd-chip:hover{ border-color:var(--dim); color:var(--ink); }
+.pino-demo .pd-chip.on{ border-color:var(--ink); color:var(--ink); background:rgba(255,255,255,.04); }
+.pino-demo .pd-chip.correct.on{ border-color:var(--truth); box-shadow:0 0 16px -6px var(--truth); }
+.pino-demo .pd-chip.mid.on{ border-color:var(--amber); box-shadow:0 0 16px -6px var(--amber); }
+.pino-demo .pd-chip.wrong.on{ border-color:var(--lie); box-shadow:0 0 16px -6px var(--lie); }
+.pino-demo .pd-stage{ display:flex; gap:34px; align-items:center; flex-wrap:wrap; }
+.pino-demo .pd-gauge{ width:230px; max-width:100%; height:auto; flex:none; }
+.pino-demo .pd-needle{ transform-origin:100px 100px; transition:transform 1.05s cubic-bezier(.2,.85,.2,1); }
+.pino-demo .pd-readout{ flex:1; min-width:220px; }
+.pino-demo .pd-verdict{ font-family:var(--disp); font-weight:700; font-size:28px; color:var(--dim); letter-spacing:-.01em; transition:opacity .2s; }
+.pino-demo .pd-verdict.good{ color:var(--truth); } .pino-demo .pd-verdict.bad{ color:var(--lie); }
+.pino-demo .pd-p{ font-family:var(--mono); font-size:11.5px; opacity:.75; margin-top:8px; text-transform:uppercase; letter-spacing:.14em; }
+.pino-demo .pd-p .pd-val{ font-weight:700; opacity:1; color:var(--ink); }
+.pino-demo .pd-bar{ height:8px; background:var(--line); margin-top:14px; overflow:hidden; }
+.pino-demo .pd-bar i{ display:block; height:100%; width:0; background:var(--truth); box-shadow:0 0 8px var(--truth); transition:width 1.05s cubic-bezier(.2,.85,.2,1); }
+.pino-demo.is-bad .pd-bar i{ background:var(--lie); box-shadow:0 0 8px var(--lie); }
+.pino-demo .pd-qa{ margin-top:22px; font-size:14px; line-height:1.55; min-height:2.6em; color:var(--dim); }
+.pino-demo .pd-qa b{ font-family:var(--mono); font-size:12px; color:var(--ink); }
+.pino-demo .pd-why{ margin-top:11px; font-family:var(--mono); font-size:12.5px; color:var(--faint); line-height:1.55; min-height:1.5em; }
+.pino-demo .pd-why b{ color:var(--dim); font-weight:500; }
+.pino-demo .pd-note{ margin-top:16px; font-family:var(--mono); font-size:11.5px; color:var(--faint); }
+.pino-demo .pd-note a{ color:var(--dim); border-bottom:1px solid var(--line2); }
+.pino-demo.analyzing .pd-verdict{ opacity:.3; }
+
+.foot{ border-top:1px solid var(--line2); padding:38px 0 64px; }
+.foot p{ color:var(--faint); font-family:var(--mono); font-size:12px; letter-spacing:.02em; max-width:80ch; line-height:1.65; }
+
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  .pino-demo .pd-needle,.pino-demo .pd-bar i{ transition:none; }
+  .status .id .dot{ animation:none; }
+}
+</style>
+<style>
+/* preview A: dark, more color */
+.hero{ background: radial-gradient(55% 75% at 18% 38%, rgba(47,227,203,.17), transparent 70%), radial-gradient(40% 65% at 72% 18%, rgba(255,91,91,.15), transparent 70%); }
+.ey{ color: var(--amber); }
+.btn{ border-color: rgba(47,227,203,.55); color: var(--truth); }
+.btn .k{ color: rgba(47,227,203,.6); }
+.btns .btn:first-child{ background: var(--truth); color: #06201c; border-color: var(--truth); }
+.btns .btn:first-child .k{ color: rgba(6,32,28,.55); }
+.kpi:nth-child(1){ background: rgba(47,227,203,.10); border-color: rgba(47,227,203,.5); }
+.kpi:nth-child(2){ background: rgba(234,184,74,.10); border-color: rgba(234,184,74,.5); }
+.kpi:nth-child(2) .n{ color: var(--amber); }
+.kpi:nth-child(3){ background: rgba(255,91,91,.10); border-color: rgba(255,91,91,.5); }
+.kpi:nth-child(3) .n{ color: var(--lie); }
+.sechead{ border-bottom-color: rgba(47,227,203,.35); }
+</style>
+</head>
+<body>
+
+<div class="status">
+  <div class="wrap">
+    <div class="id"><span class="dot"></span><b>PINOCCHIO</b><span class="sub-id"> // BLACK-BOX UNCERTAINTY INSTRUMENT</span></div>
+    <nav>
+      <a href="https://arxiv.org/abs/2609.24881">Paper</a><a href="#usage">Usage</a><a href="#cite">Cite</a>
+    </nav>
+  </div>
+</div>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="ey">Fast uncertainty estimates for black-box language models &nbsp;/&nbsp; <b>P(correct)</b> for any black-box API</p>
+    <h1>Pin<span class="n">o</span>cchio</h1>
+    <p class="sub">One external calibrator reads only the <b>text</b> of a response and returns the probability it is correct, in a <b>single forward pass</b>. No log-probabilities, no sampling, no weights, no fine-tuning of the target. It scores closed models it never saw.</p>
+
+    <p class="authors"><b>Kevin David Hayes</b>, Arka Pal, Haosong Zhang, Tom Goldstein, Micah Goldblum</p>
+    <p class="affil"><a href="https://khayes95.github.io/">University of Maryland &middot; Ritual AI &middot; Fudan University &middot; Columbia University</a></p>
+    <p class="venue">Accepted to COLM 2026</p>
+
+    <div class="btns">
+      <a class="btn" href="https://arxiv.org/abs/2609.24881"><span class="k">[</span>Paper<span class="k">]</span></a>
+      <a class="btn" href="https://github.com/khayes95/pinocchio"><span class="k">[</span>Code<span class="k">]</span></a>
+      <a class="btn" href="https://huggingface.co/spaces/KevinDavidHayes/pinocchio"><span class="k">[</span>Demo<span class="k">]</span></a>
+      <a class="btn" href="https://huggingface.co/KevinDavidHayes/pinocchio-0.8b"><span class="k">[</span>Checkpoints<span class="k">]</span></a>
+      <a class="btn" href="https://pypi.org/project/pinocchio-uq/"><span class="k">[</span>PyPI<span class="k">]</span></a>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="n">0.863</div><div class="l">held-out <b>AUROC</b> predicting correctness, against <b>0.649</b> for the best single-pass baseline</div></div>
+      <div class="kpi"><div class="n">0.814</div><div class="l">mean <b>AUROC</b>, zero-shot, on <b>13 unseen models</b> across 8 organizations</div></div>
+      <div class="kpi"><div class="n">1<span class="s"> pass</span></div><div class="l">single forward pass, <b>no logits</b>, weights, samples, or fine-tuning</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="access">
+  <div class="wrap">
+    <div class="prose">
+      <p>The models doing the most consequential work are closed. They do not return log-probabilities and cannot be fine-tuned, which rules out most ways of estimating uncertainty, and their own stated confidence is poorly calibrated.</p>
+      <p>Pinocchio sits outside the target model. It reads the question and the answer, and predicts whether that answer is correct. It handles vision-language inputs and transfers to models it was never trained on. <em>Full method, baselines and ablations are in the <a href="https://arxiv.org/abs/2609.24881">paper</a>.</em></p>
+    </div>
+  </div>
+</section>
+
+<section id="usage">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">01</span><h2>Wiring it in</h2></div>
+    <div class="code">
+      <div class="bar"><span>quickstart.py</span><span>python</span></div>
+<pre><code><span class="com"># pip install pinocchio-uq</span>
+<span class="kw">from</span> pinocchio <span class="kw">import</span> Pinocchio
+
+judge = <span class="fn">Pinocchio</span>()  <span class="com"># load once</span>
+
+response = client.chat.completions.<span class="fn">create</span>(model=<span class="str">"gpt-5"</span>, messages=messages)
+p_correct = judge.<span class="fn">score</span>(response, messages=messages)
+
+<span class="kw">if</span> p_correct &lt; <span class="num">0.5</span>:
+    <span class="fn">escalate</span>(response)</code></pre>
+    </div>
+    <p class="note">Same interface across model families: swap <code>model="gpt-5"</code> for a Claude, Gemini, or local response and call <code>judge.score</code> unchanged. The package ships a lightweight text-only 0.8B checkpoint.</p>
+  </div>
+</section>
+
+<section id="cite">
+  <div class="wrap">
+    <div class="sechead"><span class="tag">02</span><h2>Cite</h2></div>
+    <div class="code">
+      <div class="bar"><span>bibtex</span><span></span></div>
+<pre><code>@inproceedings{hayes2026pinocchio,
+  title     = {Pinocchio: Fast Uncertainty Estimates for Black-Box Language Models},
+  author    = {Hayes, Kevin David and Pal, Arka and Zhang, Haosong
+               and Goldstein, Tom and Goldblum, Micah},
+  booktitle = {Conference on Language Modeling (COLM)},
+  year      = {2026},
+}</code></pre>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
